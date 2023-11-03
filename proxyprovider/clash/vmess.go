@@ -303,7 +303,7 @@ func (c *ClashVMess) GenerateOptions() (*option.Outbound, error) {
 	}
 
 	if c.MuxOptions != nil && c.MuxOptions.Enabled {
-		outboundOptions.VLESSOptions.Multiplex = &option.MultiplexOptions{
+		outboundOptions.VLESSOptions.Multiplex = &option.OutboundMultiplexOptions{
 			Enabled:        true,
 			Protocol:       c.MuxOptions.Protocol,
 			MaxConnections: c.MuxOptions.MaxConnections,

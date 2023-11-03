@@ -86,7 +86,7 @@ func (c *ClashShadowsocks) GenerateOptions() (*option.Outbound, error) {
 		outboundOptions.ShadowsocksOptions.Network = option.NetworkList{"tcp"}
 	}
 	if c.UDPOverTCP {
-		outboundOptions.ShadowsocksOptions.UDPOverTCPOptions = &option.UDPOverTCPOptions{
+		outboundOptions.ShadowsocksOptions.UDPOverTCP = &option.UDPOverTCPOptions{
 			Enabled: true,
 			Version: c.UDPOverTCPVersion,
 		}
@@ -97,7 +97,7 @@ func (c *ClashShadowsocks) GenerateOptions() (*option.Outbound, error) {
 	}
 
 	if c.MuxOptions != nil && c.MuxOptions.Enabled {
-		outboundOptions.ShadowsocksOptions.MultiplexOptions = &option.MultiplexOptions{
+		outboundOptions.ShadowsocksOptions.Multiplex = &option.OutboundMultiplexOptions{
 			Enabled:        true,
 			Protocol:       c.MuxOptions.Protocol,
 			MaxConnections: c.MuxOptions.MaxConnections,

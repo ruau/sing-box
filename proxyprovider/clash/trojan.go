@@ -141,7 +141,7 @@ func (c *ClashTrojan) GenerateOptions() (*option.Outbound, error) {
 	}
 
 	if c.MuxOptions != nil && c.MuxOptions.Enabled {
-		outboundOptions.TrojanOptions.Multiplex = &option.MultiplexOptions{
+		outboundOptions.TrojanOptions.Multiplex = &option.OutboundMultiplexOptions{
 			Enabled:        true,
 			Protocol:       c.MuxOptions.Protocol,
 			MaxConnections: c.MuxOptions.MaxConnections,

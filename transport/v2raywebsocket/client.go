@@ -12,6 +12,7 @@ import (
 	"github.com/sagernet/sing-box/common/tls"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
+	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
 	sHTTP "github.com/sagernet/sing/protocol/http"
@@ -70,31 +71,6 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 		options.MaxEarlyData,
 		options.EarlyDataHeaderName,
 	}, nil
-}
-
-func (c *Client) dialContext(ctx context.Context, requestURL *url.URL, headers http.Header) (*WebsocketConn, error) {
-	conn, err := c.dialer.DialContext(ctx, N.NetworkTCP, c.serverAddr)
-	if err != nil {
-		return nil, err
-	}
-	if c.tlsConfig != nil {
-		conn, err = tls.ClientHandshake(ctx, conn, c.tlsConfig)
-		if err != nil {
-			return nil, err
-		}
-	}
-	conn.SetDeadline(time.Now().Add(C.TCPTimeout))
-	var protocols []string
-	if protocolHeader := headers.Get("Sec-WebSocket-Protocol"); protocolHeader != "" {
-		protocols = []string{protocolHeader}
-		headers.Del("Sec-WebSocket-Protocol")
-	}
-	reader, _, err := ws.Dialer{Header: ws.HandshakeHeaderHTTP(headers), Protocols: protocols}.Upgrade(conn, requestURL)
-	conn.SetDeadline(time.Time{})
-	if err != nil {
-		return nil, err
-	}
-	return NewConn(conn, reader, nil, ws.StateClientSide), nil
 }
 
 func (c *Client) dialContext(ctx context.Context, requestURL *url.URL, headers http.Header) (*WebsocketConn, error) {
