@@ -401,3 +401,43 @@ func (r *RuleProvider) GetRuleInfo() (format string, behavior string, ruleCount 
 	}
 	return
 }
+
+func ParseLink(ctx context.Context, link string, tag string, format Format, behavior Behavior, dnsRules *[]option.DNSRule, routeRules *[]option.Rule) ([]option.DNSRule, []option.Rule, error) {
+	cache, err := request(ctx, log.NewNOPFactory().Logger(), &http.Client{}, format, behavior, link)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	set := cache.RuleSet
+	var newDNSRules []option.DNSRule
+	if dnsRules != nil {
+		for _, dnsRule := range *dnsRules {
+			if dnsRule.DefaultOptions.RuleProvider != tag {
+				newDNSRules = append(newDNSRules, dnsRule)
+				continue
+			}
+			dnsRule.DefaultOptions.RuleProvider = ""
+			ruleProviderRules, err := set.AppendDNSRuleToOptions(&dnsRule)
+			if err != nil {
+				return nil, nil, E.Cause(err, "append dns rule failed")
+			}
+			newDNSRules = append(newDNSRules, ruleProviderRules...)
+		}
+	}
+	var newRouteRules []option.Rule
+	if routeRules != nil {
+		for _, routeRule := range *routeRules {
+			if routeRule.DefaultOptions.RuleProvider != tag {
+				newRouteRules = append(newRouteRules, routeRule)
+				continue
+			}
+			routeRule.DefaultOptions.RuleProvider = ""
+			ruleProviderRules, err := set.AppendRouteRuleToOptions(&routeRule)
+			if err != nil {
+				return nil, nil, E.Cause(err, "append route rule failed")
+			}
+			newRouteRules = append(newRouteRules, ruleProviderRules...)
+		}
+	}
+	return newDNSRules, newRouteRules, nil
+}
