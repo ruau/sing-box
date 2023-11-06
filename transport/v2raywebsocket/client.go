@@ -52,9 +52,6 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 	if !strings.HasPrefix(requestURL.Path, "/") {
 		requestURL.Path = "/" + requestURL.Path
 	}
-	if !strings.HasPrefix(requestURL.Path, "/") {
-		requestURL.Path = "/" + requestURL.Path
-	}
 	headers := make(http.Header)
 	for key, value := range options.Headers {
 		headers[key] = value
