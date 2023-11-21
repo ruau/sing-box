@@ -35,6 +35,7 @@ type Script struct {
 	env            []string
 	stdoutLogLevel log.Level
 	stderrLogLevel log.Level
+	noFatal        bool
 	mode           string
 
 	cmd *exec.Cmd
@@ -54,6 +55,7 @@ func NewScript(ctx context.Context, logger log.ContextLogger, tag string, option
 	s.command = options.Command
 	s.args = options.Args
 	s.directory = options.Directory
+	s.noFatal = options.NoFatal
 	if options.Env != nil && len(options.Env) > 0 {
 		s.env = make([]string, 0, len(options.Env))
 		for k, v := range options.Env {
@@ -157,10 +159,11 @@ func (s *Script) PreStart() error {
 		err := cmd.Run()
 		if err != nil {
 			s.logger.Error("failed to execute pre-start script: ", cmd.String(), ", error: ", err)
-			return err
+			if !s.noFatal {
+				return err
+			}
 		} else {
 			s.logger.Info("pre-start script executed: ", cmd.String())
-			return nil
 		}
 	case preStartServicePreClose, preStartServicePostClose:
 		cmd := s.newCommand(s.ctx)
@@ -172,11 +175,22 @@ func (s *Script) PreStart() error {
 		} else {
 			s.logger.Info("pre-start service script started: ", cmd.String())
 			s.cmd = cmd
-			return nil
+			go func() {
+				cmd := s.cmd
+				err := cmd.Wait()
+				if err != nil {
+					if !s.noFatal {
+						s.logger.Fatal("service script executed failed: ", cmd.String(), ", error: ", err)
+					} else {
+						s.logger.Error("service script executed failed: ", cmd.String(), ", error: ", err)
+					}
+				}
+				s.cmd = nil
+			}()
 		}
 	default:
-		return nil
 	}
+	return nil
 }
 
 func (s *Script) PostStart() error {
@@ -187,10 +201,11 @@ func (s *Script) PostStart() error {
 		err := cmd.Run()
 		if err != nil {
 			s.logger.Error("failed to execute post-start script: ", cmd.String(), ", error: ", err)
-			return err
+			if !s.noFatal {
+				return err
+			}
 		} else {
 			s.logger.Info("post-start script executed: ", cmd.String())
-			return nil
 		}
 	case postStartServicePreClose, postStartServicePostClose:
 		cmd := s.newCommand(s.ctx)
@@ -202,11 +217,22 @@ func (s *Script) PostStart() error {
 		} else {
 			s.logger.Info("post-start service script started: ", cmd.String())
 			s.cmd = cmd
-			return nil
+			go func() {
+				cmd := s.cmd
+				err := cmd.Wait()
+				if err != nil && !errors.Is(err, context.Canceled) {
+					if !s.noFatal {
+						s.logger.Fatal("service script executed failed: ", cmd.String(), ", error: ", err)
+					} else {
+						s.logger.Error("service script executed failed: ", cmd.String(), ", error: ", err)
+					}
+				}
+				s.cmd = nil
+			}()
 		}
 	default:
-		return nil
 	}
+	return nil
 }
 
 func (s *Script) PreClose() error {
@@ -217,23 +243,26 @@ func (s *Script) PreClose() error {
 		err := cmd.Run()
 		if err != nil {
 			s.logger.Error("failed to execute pre-close script: ", cmd.String(), ", error: ", err)
-			return err
+			if !s.noFatal {
+				return err
+			}
 		} else {
 			s.logger.Info("pre-close script executed: ", cmd.String())
-			return nil
 		}
 	case preStartServicePreClose, postStartServicePreClose:
-		err := s.cmd.Cancel()
-		if err != nil && !errors.Is(err, context.Canceled) {
-			s.logger.Error("failed to cancel service script: ", s.cmd.String(), ", error: ", err)
-			return err
-		} else {
-			s.logger.Info("service script canceled: ", s.cmd.String())
-			return nil
+		cmd := s.cmd
+		if cmd != nil {
+			err := cmd.Cancel()
+			if err != nil && !errors.Is(err, context.Canceled) {
+				s.logger.Error("failed to cancel service script: ", cmd.String(), ", error: ", err)
+				return err
+			} else {
+				s.logger.Info("service script canceled: ", cmd.String())
+			}
 		}
 	default:
-		return nil
 	}
+	return nil
 }
 
 func (s *Script) PostClose() error {
@@ -244,21 +273,24 @@ func (s *Script) PostClose() error {
 		err := cmd.Run()
 		if err != nil {
 			s.logger.Error("failed to execute post-close script: ", cmd.String(), ", error: ", err)
-			return err
+			if !s.noFatal {
+				return err
+			}
 		} else {
 			s.logger.Info("post-close script executed: ", cmd.String())
-			return nil
 		}
 	case preStartServicePostClose, postStartServicePostClose:
-		err := s.cmd.Cancel()
-		if err != nil && !errors.Is(err, context.Canceled) {
-			s.logger.Error("failed to cancel service script: ", s.cmd.String(), ", error: ", err)
-			return err
-		} else {
-			s.logger.Info("service script canceled: ", s.cmd.String())
-			return nil
+		cmd := s.cmd
+		if cmd != nil {
+			err := cmd.Cancel()
+			if err != nil && !errors.Is(err, context.Canceled) {
+				s.logger.Error("failed to cancel service script: ", cmd.String(), ", error: ", err)
+				return err
+			} else {
+				s.logger.Info("service script canceled: ", cmd.String())
+			}
 		}
 	default:
-		return nil
 	}
+	return nil
 }

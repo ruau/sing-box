@@ -7,6 +7,7 @@ type ScriptOptions struct {
 	Directory  string            `json:"directory,omitempty"`
 	Mode       string            `json:"mode"`
 	Env        map[string]string `json:"env,omitempty"`
+	NoFatal    bool              `json:"no_fatal,omitempty"`
 	LogOptions ScriptLogOptions  `json:"log,omitempty"`
 }
 
