@@ -1,30 +1,29 @@
-#### 1.7.0-alpha.6
+#### 1.6.6
 
 * Fixes and improvements
 
-#### 1.7.0-alpha.4
+#### 1.6.5
 
-* Migrate multiplex and UoT server to inbound **1**
-* Add TCP Brutal support for multiplex **2**
-
-**1**:
-
-Starting in 1.7.0, multiplexing support is no longer enabled by default and needs to be turned on explicitly in inbound options.
-
-**2**
-
-Hysteria Brutal Congestion Control Algorithm in TCP. A kernel module needs to be installed on the Linux server, see [TCP Brutal](/configuration/shared/tcp-brutal) for details.
-
-#### 1.7.0-alpha.3
-
-* Add [HTTPUpgrade V2Ray transport](/configuration/shared/v2ray-transport#HTTPUpgrade) support **1**
+* Fix crash if TUIC inbound authentication failed
 * Fixes and improvements
 
-**1**:
+#### 1.6.4
 
-Introduced in V2Ray 5.10.0.
+* Fixes and improvements
 
-The new HTTPUpgrade transport has better performance than WebSocket and is better suited for CDN abuse.
+#### 1.6.3
+
+* iOS/Android: Fix profile auto update
+* Fixes and improvements
+
+#### 1.6.2
+
+* Fixes and improvements
+
+#### 1.6.1
+
+* Our [Android client](/installation/clients/sfa) is now available in the Google Play Store ▶️
+* Fixes and improvements
 
 #### 1.6.0
 

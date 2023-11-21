@@ -80,9 +80,11 @@ type DefaultRule struct {
 	//
 	RuleProvider string `json:"@rule_provider,omitempty"`
 	//
-	ClashMode string `json:"clash_mode,omitempty"`
-	Invert    bool   `json:"invert,omitempty"`
-	Outbound  string `json:"outbound,omitempty"`
+	ClashMode string           `json:"clash_mode,omitempty"`
+	WIFISSID  Listable[string] `json:"wifi_ssid,omitempty"`
+	WIFIBSSID Listable[string] `json:"wifi_bssid,omitempty"`
+	Invert    bool             `json:"invert,omitempty"`
+	Outbound  string           `json:"outbound,omitempty"`
 }
 
 func (r DefaultRule) IsValid() bool {

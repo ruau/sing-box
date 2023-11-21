@@ -46,6 +46,7 @@ type Options struct {
 	option.Options
 	Context           context.Context
 	PlatformInterface platform.Interface
+	PlatformLogWriter log.PlatformWriter
 }
 
 func New(options Options) (*Box, error) {
@@ -61,7 +62,7 @@ func New(options Options) (*Box, error) {
 	applyDebugOptions(common.PtrValueOrDefault(experimentalOptions.Debug))
 	var needClashAPI bool
 	var needV2RayAPI bool
-	if experimentalOptions.ClashAPI != nil || options.PlatformInterface != nil {
+	if experimentalOptions.ClashAPI != nil || options.PlatformLogWriter != nil {
 		needClashAPI = true
 	}
 	if experimentalOptions.V2RayAPI != nil && experimentalOptions.V2RayAPI.Listen != "" {
@@ -77,7 +78,7 @@ func New(options Options) (*Box, error) {
 		Observable:     needClashAPI,
 		DefaultWriter:  defaultLogWriter,
 		BaseTime:       createdAt,
-		PlatformWriter: options.PlatformInterface,
+		PlatformWriter: options.PlatformLogWriter,
 	})
 	if err != nil {
 		return nil, E.Cause(err, "create log factory")
