@@ -1,5 +1,34 @@
+---
+icon: material/alert-decagram
+---
+
+# ChangeLog
+
 #### 1.6.6
 
+* Fixes and improvements
+
+#### 1.7.0-rc.1
+
+* Fixes and improvements
+
+#### 1.7.0-beta.5
+
+* Update gVisor to 20231113.0
+* Fixes and improvements
+
+#### 1.7.0-beta.4
+
+* Add `wifi_ssid` and `wifi_bssid` route and DNS rules **1**
+* Fixes and improvements
+
+**1**:
+
+Only supported in graphical clients on Android and iOS.
+
+#### 1.7.0-beta.3
+
+* Fix zero TTL was incorrectly reset
 * Fixes and improvements
 
 #### 1.6.5
@@ -7,13 +36,34 @@
 * Fix crash if TUIC inbound authentication failed
 * Fixes and improvements
 
+#### 1.7.0-beta.2
+
+* Fix crash if TUIC inbound authentication failed
+* Update quic-go to v0.40.0
+* Fixes and improvements
+
 #### 1.6.4
+
+* Fixes and improvements
+
+#### 1.7.0-beta.1
 
 * Fixes and improvements
 
 #### 1.6.3
 
 * iOS/Android: Fix profile auto update
+* Fixes and improvements
+
+#### 1.7.0-alpha.11
+
+* iOS/Android: Fix profile auto update
+* Fixes and improvements
+
+#### 1.7.0-alpha.10
+
+* Fix tcp-brutal not working with TLS
+* Fix Android client not closing in some cases
 * Fixes and improvements
 
 #### 1.6.2
@@ -24,6 +74,34 @@
 
 * Our [Android client](/installation/clients/sfa) is now available in the Google Play Store ▶️
 * Fixes and improvements
+
+#### 1.7.0-alpha.6
+
+* Fixes and improvements
+
+#### 1.7.0-alpha.4
+
+* Migrate multiplex and UoT server to inbound **1**
+* Add TCP Brutal support for multiplex **2**
+
+**1**:
+
+Starting in 1.7.0, multiplexing support is no longer enabled by default and needs to be turned on explicitly in inbound options.
+
+**2**
+
+Hysteria Brutal Congestion Control Algorithm in TCP. A kernel module needs to be installed on the Linux server, see [TCP Brutal](/configuration/shared/tcp-brutal) for details.
+
+#### 1.7.0-alpha.3
+
+* Add [HTTPUpgrade V2Ray transport](/configuration/shared/v2ray-transport#HTTPUpgrade) support **1**
+* Fixes and improvements
+
+**1**:
+
+Introduced in V2Ray 5.10.0.
+
+The new HTTPUpgrade transport has better performance than WebSocket and is better suited for CDN abuse.
 
 #### 1.6.0
 
