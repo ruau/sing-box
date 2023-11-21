@@ -19,6 +19,7 @@ type _Options struct {
 	RulProviders   []RuleProvider       `json:"ruleproviders,omitempty"`
 	Route          *RouteOptions        `json:"route,omitempty"`
 	Experimental   *ExperimentalOptions `json:"experimental,omitempty"`
+	Scripts        []ScriptOptions      `json:"scripts,omitempty"`
 }
 
 type Options _Options

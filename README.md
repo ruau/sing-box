@@ -325,3 +325,45 @@ JSTest 出站允许用户根据 JS 脚本代码选择出站，依附 JS 脚本�
     ]
 }
 ```
+
+
+### Script 脚本支持
+
+Script 脚本允许用户在程序运行时执行脚本，可以用于自定义一些功能。
+
+- 编译时需要使用 `with_script` tag
+
+##### 用法
+```json5
+{
+    "scripts": [
+        {
+            "tag": "script-x", // 标签，必填，用于区别不同的 script，不可重复
+            "command": "/path/to/script", // 脚本命令，必填，绝对路径
+            "args": [], // 脚本参数，选填
+            "directory": "/path/to/directory", // 脚本工作目录，选填，绝对路径
+            "mode": "pre-start", // 运行模式，必填，可选列表如下
+            "env": { // 环境变量，选填
+                "foo": "bar"
+            },
+            "log": {
+                "enabled": false, // 是否启用日志，选填，默认 false
+                "stdout_log_level": "info", // stdout 日志等级，选填，可选：trace，debug，info，warn，error，fatal，panic，默认 info
+                "stderr_log_level": "error", // stderr 日志等级，选填，可选：trace，debug，info，warn，error，fatal，panic，默认 error
+            }
+        }
+    ]
+}
+```
+
+##### 运行模式
+```
+1. pre-start // 在启动其他服务前运行脚本
+2. pre-start-service-pre-close // 运行的脚本会持续整个程序的生命周期，在启动其他服务前运行，且在关闭其他服务前停止
+3. pre-start-service-post-close // 运行的脚本会持续整个程序的生命周期，在启动其他服务前运行，且在关闭其他服务后停止
+4. post-start // 在启动其他服务后运行脚本
+5. post-start-service-pre-close // 运行的脚本会持续整个程序的生命周期，在启动其他服务后运行，且在关闭其他服务前停止
+6. post-start-service-post-close // 运行的脚本会持续整个程序的生命周期，在启动其他服务后运行，且在关闭其他服务后停止
+7. pre-close // 在关闭其他服务前运行脚本
+8. post-close // 在关闭其他服务后运行脚本
+```

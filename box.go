@@ -18,6 +18,7 @@ import (
 	"github.com/sagernet/sing-box/proxyprovider"
 	"github.com/sagernet/sing-box/route"
 	"github.com/sagernet/sing-box/ruleprovider"
+	"github.com/sagernet/sing-box/script"
 	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
 	F "github.com/sagernet/sing/common/format"
@@ -34,6 +35,7 @@ type Box struct {
 	outbounds      []adapter.Outbound
 	proxyProviders []adapter.ProxyProvider
 	ruleProviders  []adapter.RuleProvider
+	scripts        []*script.Script
 	logFactory     log.Factory
 	logger         log.ContextLogger
 	preServices    map[string]adapter.Service
@@ -85,6 +87,25 @@ func New(options Options) (*Box, error) {
 	}
 	routeOptions := common.PtrValueOrDefault(options.Route)
 	dnsOptions := common.PtrValueOrDefault(options.DNS)
+	var scripts []*script.Script
+	for i, scriptOptions := range options.Scripts {
+		var tag string
+		if scriptOptions.Tag != "" {
+			tag = scriptOptions.Tag
+		} else {
+			tag = F.ToString(i)
+		}
+		s, err := script.NewScript(
+			ctx,
+			logFactory.NewLogger(F.ToString("script", "[", tag, "]")),
+			tag,
+			scriptOptions,
+		)
+		if err != nil {
+			return nil, E.Cause(err, "parse script[", i, "]")
+		}
+		scripts = append(scripts, s)
+	}
 	var ruleProviders []adapter.RuleProvider
 	if len(options.RulProviders) > 0 {
 		ruleProviders = make([]adapter.RuleProvider, 0, len(options.RulProviders))
@@ -259,6 +280,7 @@ func New(options Options) (*Box, error) {
 		outbounds:      outbounds,
 		proxyProviders: proxyProviders,
 		ruleProviders:  ruleProviders,
+		scripts:        scripts,
 		createdAt:      createdAt,
 		logFactory:     logFactory,
 		logger:         logFactory.Logger(),
@@ -308,6 +330,12 @@ func (s *Box) Start() error {
 }
 
 func (s *Box) preStart() error {
+	for _, script := range s.scripts {
+		err := script.PreStart()
+		if err != nil {
+			return E.Cause(err, "pre-start script[", script.Tag(), "]")
+		}
+	}
 	for serviceName, service := range s.preServices {
 		if preService, isPreService := service.(adapter.PreStarter); isPreService {
 			s.logger.Trace("pre-start ", serviceName)
@@ -363,6 +391,12 @@ func (s *Box) start() error {
 			return E.Cause(err, "initialize inbound/", in.Type(), "[", tag, "]")
 		}
 	}
+	for _, script := range s.scripts {
+		err := script.PostStart()
+		if err != nil {
+			return E.Cause(err, "post-start script[", script.Tag(), "]")
+		}
+	}
 	return nil
 }
 
@@ -394,6 +428,11 @@ func (s *Box) Close() error {
 		close(s.done)
 	}
 	var errors error
+	for _, script := range s.scripts {
+		errors = E.Append(errors, script.PreClose(), func(err error) error {
+			return E.Cause(err, "pre-close script[", script.Tag(), "]")
+		})
+	}
 	for serviceName, service := range s.postServices {
 		s.logger.Trace("closing ", serviceName)
 		errors = E.Append(errors, service.Close(), func(err error) error {
@@ -434,6 +473,11 @@ func (s *Box) Close() error {
 		s.logger.Trace("closing ", serviceName)
 		errors = E.Append(errors, service.Close(), func(err error) error {
 			return E.Cause(err, "close ", serviceName)
+		})
+	}
+	for _, script := range s.scripts {
+		errors = E.Append(errors, script.PostClose(), func(err error) error {
+			return E.Cause(err, "post-close script[", script.Tag(), "]")
 		})
 	}
 	s.logger.Trace("closing log factory")
