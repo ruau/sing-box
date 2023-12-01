@@ -23,9 +23,6 @@ type Router interface {
 	ProxyProviders() []ProxyProvider
 	ProxyProvider(tag string) (ProxyProvider, bool)
 
-	RuleProviders() []RuleProvider
-	RuleProvider(tag string) (RuleProvider, bool)
-
 	FakeIPStore() FakeIPStore
 
 	ConnectionRouter
