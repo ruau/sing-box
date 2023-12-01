@@ -163,7 +163,7 @@ func (d *Duration) UnmarshalJSON(bytes []byte) error {
 	if err != nil {
 		return err
 	}
-	duration, err := time.ParseDuration(value)
+	duration, err := ParseDuration(value)
 	if err != nil {
 		return err
 	}
@@ -172,6 +172,14 @@ func (d *Duration) UnmarshalJSON(bytes []byte) error {
 }
 
 type DNSQueryType uint16
+
+func (t DNSQueryType) String() string {
+	typeName, loaded := mDNS.TypeToString[uint16(t)]
+	if loaded {
+		return typeName
+	}
+	return F.ToString(uint16(t))
+}
 
 func (t DNSQueryType) MarshalJSON() ([]byte, error) {
 	typeName, loaded := mDNS.TypeToString[uint16(t)]

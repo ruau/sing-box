@@ -22,6 +22,7 @@ import (
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
+	"github.com/sagernet/sing/service"
 
 	"github.com/robertkrimen/otto"
 )
@@ -96,8 +97,9 @@ func (j *JSTest) Start() error {
 	}
 
 	if j.tag != "" {
-		if clashServer := j.router.ClashServer(); clashServer != nil && clashServer.StoreSelected() {
-			selected := clashServer.CacheFile().LoadSelected(j.tag)
+		cacheFile := service.FromContext[adapter.CacheFile](j.ctx)
+		if cacheFile != nil {
+			selected := cacheFile.LoadSelected(j.tag)
 			if selected != "" {
 				detour, loaded := j.outbounds[selected]
 				if loaded {
@@ -291,8 +293,9 @@ func (j *JSTest) SelectOutbound(tag string) bool {
 	}
 	j.selected = detour
 	if j.tag != "" {
-		if clashServer := j.router.ClashServer(); clashServer != nil && clashServer.StoreSelected() {
-			err := clashServer.CacheFile().StoreSelected(j.tag, tag)
+		cacheFile := service.FromContext[adapter.CacheFile](j.ctx)
+		if cacheFile != nil {
+			err := cacheFile.StoreSelected(j.tag, tag)
 			if err != nil {
 				j.logger.Error("store selected: ", err)
 			}

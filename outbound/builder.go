@@ -58,7 +58,7 @@ func New(ctx context.Context, router adapter.Router, logger log.ContextLogger, t
 	case C.TypeRandomAddr:
 		return NewRandomAddr(ctx, router, logger, tag, options.RandomAddrOptions)
 	case C.TypeSelector:
-		return NewSelector(router, logger, tag, options.SelectorOptions)
+		return NewSelector(ctx, router, logger, tag, options.SelectorOptions)
 	case C.TypeURLTest:
 		return NewURLTest(ctx, router, logger, tag, options.URLTestOptions)
 	case C.TypeJSTest:
