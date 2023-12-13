@@ -2,8 +2,6 @@
 icon: material/arrange-bring-forward
 ---
 
-# Migration
-
 ## 1.8.0
 
 !!! warning "Unstable"
@@ -12,7 +10,7 @@ icon: material/arrange-bring-forward
 
 ### :material-close-box: Migrate cache file from Clash API to independent options
 
-!!! info "Reference"
+!!! info "References"
 
     [Clash API](/configuration/experimental/clash-api) / 
     [Cache File](/configuration/experimental/cache-file)
@@ -50,7 +48,7 @@ icon: material/arrange-bring-forward
 
 ### :material-checkbox-intermediate: Migrate GeoIP to rule sets
 
-!!! info "Reference"
+!!! info "References"
 
     [GeoIP](/configuration/route/geoip) / 
     [Route](/configuration/route) / 
@@ -135,7 +133,7 @@ icon: material/arrange-bring-forward
 
 ### :material-checkbox-intermediate: Migrate Geosite to rule sets
 
-!!! info "Reference"
+!!! info "References"
 
     [Geosite](/configuration/route/geosite) / 
     [Route](/configuration/route) / 

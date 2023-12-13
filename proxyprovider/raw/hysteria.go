@@ -81,10 +81,12 @@ func (p *Hysteria) ParseLink(link string) error {
 			UpMbps:     int(upmbps),
 			DownMbps:   int(downmbps),
 			Obfs:       obfsParam,
-			TLS: &option.OutboundTLSOptions{
-				Enabled:    true,
-				Insecure:   insecure,
-				ServerName: sni,
+			OutboundTLSOptionsContainer: option.OutboundTLSOptionsContainer{
+				TLS: &option.OutboundTLSOptions{
+					Enabled:    true,
+					Insecure:   insecure,
+					ServerName: sni,
+				},
 			},
 		},
 	}

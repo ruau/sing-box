@@ -62,10 +62,12 @@ func (p *Hysteria2) ParseLink(link string) error {
 				ServerPort: port,
 			},
 			Password: u.User.Username(),
-			TLS: &option.OutboundTLSOptions{
-				Enabled:    true,
-				Insecure:   insecure,
-				ServerName: sni,
+			OutboundTLSOptionsContainer: option.OutboundTLSOptionsContainer{
+				TLS: &option.OutboundTLSOptions{
+					Enabled:    true,
+					Insecure:   insecure,
+					ServerName: sni,
+				},
 			},
 		},
 	}

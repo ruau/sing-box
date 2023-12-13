@@ -50,9 +50,11 @@ func (p *Trojan) ParseLink(link string) error {
 				ServerPort: port,
 			},
 			Password: password,
-			TLS: &option.OutboundTLSOptions{
-				Enabled:    true,
-				ServerName: u.Hostname(),
+			OutboundTLSOptionsContainer: option.OutboundTLSOptionsContainer{
+				TLS: &option.OutboundTLSOptions{
+					Enabled:    true,
+					ServerName: u.Hostname(),
+				},
 			},
 		},
 	}

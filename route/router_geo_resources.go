@@ -13,8 +13,6 @@ import (
 	"github.com/sagernet/sing-box/common/geoip"
 	"github.com/sagernet/sing-box/common/geosite"
 	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/option"
-	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
 	"github.com/sagernet/sing/common/rw"
@@ -218,35 +216,17 @@ func (r *Router) updateGeositeDatabase() {
 	}
 	r.logger.Info("download geosite database success")
 	geoReader, codes, err := geosite.Open(tempGeoPath)
-	if err != nil {
-		r.logger.Error(E.Cause(err, "open geosite database"))
-		return
-	}
-	r.logger.Info("loaded geosite database: ", len(codes), " codes")
-	r.geositeReader = geoReader
-	r.geositeCache = make(map[string]adapter.Rule)
-	for _, rule := range r.rules {
-		err := rule.UpdateGeosite()
+	if err == nil {
+		r.logger.Info("loaded geosite database: ", len(codes), " codes")
+		r.geositeReader = geoReader
+		r.geositeCache = make(map[string]adapter.Rule)
+		err = os.Rename(tempGeoPath, r.geositePath)
 		if err != nil {
-			r.logger.Error("failed to reload geosite rules: ", err)
+			r.logger.Error("save geosite database failed: ", err)
+			return
 		}
-	}
-	for _, rule := range r.dnsRules {
-		err := rule.UpdateGeosite()
-		if err != nil {
-			r.logger.Error("failed to reload geosite rules: ", err)
-		}
-	}
-	err = common.Close(r.geositeReader)
-	if err != nil {
-		r.logger.Error("close geosite reader failed: ", err)
-	}
-	r.geositeCache = nil
-	r.geositeReader = nil
-	err = os.Rename(tempGeoPath, r.geositePath)
-	if err != nil {
-		r.logger.Error("save geosite database failed: ", err)
-		os.Remove(tempGeoPath)
+	} else {
+		r.logger.Error("open geosite database failed: ", err)
 		return
 	}
 	r.logger.Info("reload geosite rules success")
@@ -373,72 +353,4 @@ func (r *Router) downloadGeositeDatabase(savePath string) error {
 		filemanager.Remove(r.ctx, savePath)
 	}
 	return err
-}
-
-func hasRule(rules []option.Rule, cond func(rule option.DefaultRule) bool) bool {
-	for _, rule := range rules {
-		switch rule.Type {
-		case C.RuleTypeDefault:
-			if cond(rule.DefaultOptions) {
-				return true
-			}
-		case C.RuleTypeLogical:
-			if hasRule(rule.LogicalOptions.Rules, cond) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func hasDNSRule(rules []option.DNSRule, cond func(rule option.DefaultDNSRule) bool) bool {
-	for _, rule := range rules {
-		switch rule.Type {
-		case C.RuleTypeDefault:
-			if cond(rule.DefaultOptions) {
-				return true
-			}
-		case C.RuleTypeLogical:
-			if hasDNSRule(rule.LogicalOptions.Rules, cond) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func isGeoIPRule(rule option.DefaultRule) bool {
-	return len(rule.SourceGeoIP) > 0 && common.Any(rule.SourceGeoIP, notPrivateNode) || len(rule.GeoIP) > 0 && common.Any(rule.GeoIP, notPrivateNode)
-}
-
-func isGeoIPDNSRule(rule option.DefaultDNSRule) bool {
-	return len(rule.SourceGeoIP) > 0 && common.Any(rule.SourceGeoIP, notPrivateNode)
-}
-
-func isGeositeRule(rule option.DefaultRule) bool {
-	return len(rule.Geosite) > 0
-}
-
-func isGeositeDNSRule(rule option.DefaultDNSRule) bool {
-	return len(rule.Geosite) > 0
-}
-
-func isProcessRule(rule option.DefaultRule) bool {
-	return len(rule.ProcessName) > 0 || len(rule.ProcessPath) > 0 || len(rule.PackageName) > 0 || len(rule.User) > 0 || len(rule.UserID) > 0
-}
-
-func isProcessDNSRule(rule option.DefaultDNSRule) bool {
-	return len(rule.ProcessName) > 0 || len(rule.ProcessPath) > 0 || len(rule.PackageName) > 0 || len(rule.User) > 0 || len(rule.UserID) > 0
-}
-
-func notPrivateNode(code string) bool {
-	return code != "private"
-}
-
-func isWIFIRule(rule option.DefaultRule) bool {
-	return len(rule.WIFISSID) > 0 || len(rule.WIFIBSSID) > 0
-}
-
-func isWIFIDNSRule(rule option.DefaultDNSRule) bool {
-	return len(rule.WIFISSID) > 0 || len(rule.WIFIBSSID) > 0
 }

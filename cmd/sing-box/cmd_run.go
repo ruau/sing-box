@@ -12,11 +12,13 @@ import (
 	"syscall"
 	"time"
 
-	box "github.com/sagernet/sing-box"
-	"github.com/sagernet/sing-box/common/badjsonmerge"
+	"github.com/sagernet/sing-box"
+	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
+	"github.com/sagernet/sing/common/json"
+	"github.com/sagernet/sing/common/json/badjson"
 
 	"github.com/spf13/cobra"
 )
@@ -55,8 +57,7 @@ func readConfigAt(path string) (*OptionsEntry, error) {
 	if err != nil {
 		return nil, E.Cause(err, "read config at ", path)
 	}
-	var options option.Options
-	err = options.UnmarshalJSON(configContent)
+	options, err := json.UnmarshalExtended[option.Options](configContent)
 	if err != nil {
 		return nil, E.Cause(err, "decode config at ", path)
 	}
@@ -106,12 +107,17 @@ func readConfigAndMerge() (option.Options, error) {
 	if len(optionsList) == 1 {
 		return optionsList[0].options, nil
 	}
-	var mergedOptions option.Options
+	var mergedMessage json.RawMessage
 	for _, options := range optionsList {
-		mergedOptions, err = badjsonmerge.MergeOptions(options.options, mergedOptions)
+		mergedMessage, err = badjson.MergeJSON(options.options.RawMessage, mergedMessage)
 		if err != nil {
 			return option.Options{}, E.Cause(err, "merge config at ", options.path)
 		}
+	}
+	var mergedOptions option.Options
+	err = mergedOptions.UnmarshalJSON(mergedMessage)
+	if err != nil {
+		return option.Options{}, E.Cause(err, "unmarshal merged config")
 	}
 	return mergedOptions, nil
 }
@@ -204,7 +210,7 @@ func run() error {
 }
 
 func closeMonitor(ctx context.Context) {
-	time.Sleep(3 * time.Second)
+	time.Sleep(C.DefaultStopFatalTimeout)
 	select {
 	case <-ctx.Done():
 		return

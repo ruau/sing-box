@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/common/badjson"
 	"github.com/sagernet/sing-box/common/urltest"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/outbound"
+	"github.com/sagernet/sing/common/json/badjson"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"

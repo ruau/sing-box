@@ -6,14 +6,15 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"runtime"
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
-	"github.com/sagernet/sing-box/common/json"
 	"github.com/sagernet/sing-box/common/srs"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
+	"github.com/sagernet/sing/common/json"
 	"github.com/sagernet/sing/common/logger"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
@@ -29,6 +30,7 @@ type RemoteRuleSet struct {
 	router         adapter.Router
 	logger         logger.ContextLogger
 	options        option.RuleSet
+	metadata       adapter.RuleSetMetadata
 	updateInterval time.Duration
 	dialer         N.Dialer
 	rules          []adapter.HeadlessRule
@@ -93,15 +95,29 @@ func (s *RemoteRuleSet) StartContext(ctx context.Context, startContext adapter.R
 			s.lastEtag = savedSet.LastEtag
 		}
 	}
-	if s.lastUpdated.IsZero() || time.Since(s.lastUpdated) > s.updateInterval {
+	if s.lastUpdated.IsZero() {
 		err := s.fetchOnce(ctx, startContext)
 		if err != nil {
-			return E.Cause(err, "fetch rule-set ", s.options.Tag)
+			return E.Cause(err, "initial rule-set: ", s.options.Tag)
 		}
 	}
 	s.updateTicker = time.NewTicker(s.updateInterval)
 	go s.loopUpdate()
 	return nil
+}
+
+func (s *RemoteRuleSet) PostStart() error {
+	if s.lastUpdated.IsZero() {
+		err := s.fetchOnce(s.ctx, nil)
+		if err != nil {
+			s.logger.Error("fetch rule-set ", s.options.Tag, ": ", err)
+		}
+	}
+	return nil
+}
+
+func (s *RemoteRuleSet) Metadata() adapter.RuleSetMetadata {
+	return s.metadata
 }
 
 func (s *RemoteRuleSet) loadBytes(content []byte) error {
@@ -110,7 +126,7 @@ func (s *RemoteRuleSet) loadBytes(content []byte) error {
 		err          error
 	)
 	switch s.options.Format {
-	case C.RuleSetFormatSource, "":
+	case C.RuleSetFormatSource:
 		var compat option.PlainRuleSetCompat
 		decoder := json.NewDecoder(json.NewCommentFilter(bytes.NewReader(content)))
 		decoder.DisallowUnknownFields()
@@ -134,12 +150,21 @@ func (s *RemoteRuleSet) loadBytes(content []byte) error {
 			return E.Cause(err, "parse rule_set.rules.[", i, "]")
 		}
 	}
+	s.metadata.ContainsProcessRule = hasHeadlessRule(plainRuleSet.Rules, isProcessHeadlessRule)
+	s.metadata.ContainsWIFIRule = hasHeadlessRule(plainRuleSet.Rules, isWIFIHeadlessRule)
 	s.rules = rules
 	return nil
 }
 
 func (s *RemoteRuleSet) loopUpdate() {
+	if time.Since(s.lastUpdated) > s.updateInterval {
+		err := s.fetchOnce(s.ctx, nil)
+		if err != nil {
+			s.logger.Error("fetch rule-set ", s.options.Tag, ": ", err)
+		}
+	}
 	for {
+		runtime.GC()
 		select {
 		case <-s.ctx.Done():
 			return
@@ -183,6 +208,19 @@ func (s *RemoteRuleSet) fetchOnce(ctx context.Context, startContext adapter.Rule
 	switch response.StatusCode {
 	case http.StatusOK:
 	case http.StatusNotModified:
+		s.lastUpdated = time.Now()
+		cacheFile := service.FromContext[adapter.CacheFile](s.ctx)
+		if cacheFile != nil {
+			savedRuleSet := cacheFile.LoadRuleSet(s.options.Tag)
+			if savedRuleSet != nil {
+				savedRuleSet.LastUpdated = s.lastUpdated
+				err = cacheFile.SaveRuleSet(s.options.Tag, savedRuleSet)
+				if err != nil {
+					s.logger.Error("save rule-set updated time: ", err)
+					return nil
+				}
+			}
+		}
 		s.logger.Info("update rule-set ", s.options.Tag, ": not modified")
 		return nil
 	default:
