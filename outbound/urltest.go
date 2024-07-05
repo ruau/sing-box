@@ -8,6 +8,7 @@ import (
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/interrupt"
+	"github.com/sagernet/sing-box/common/outboundprovider/filter"
 	"github.com/sagernet/sing-box/common/urltest"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
@@ -32,6 +33,8 @@ type URLTest struct {
 	myOutboundAdapter
 	ctx                          context.Context
 	tags                         []string
+	providers                    []providerOutbound
+	outboundTags                 []string
 	link                         string
 	interval                     time.Duration
 	tolerance                    uint16
@@ -58,21 +61,78 @@ func NewURLTest(ctx context.Context, router adapter.Router, logger log.ContextLo
 		idleTimeout:                  time.Duration(options.IdleTimeout),
 		interruptExternalConnections: options.InterruptExistConnections,
 	}
-	if len(outbound.tags) == 0 {
-		return nil, E.New("missing tags")
+	if len(options.Providers) > 0 {
+		outbound.providers = make([]providerOutbound, 0, len(options.Providers))
+		for i, provider := range options.Providers {
+			if provider.Tag == "" {
+				return nil, E.New("missing provider tag[", i, "]")
+			}
+			f, err := filter.NewOutboundFilter(provider.OutboundFilterOptions)
+			if err != nil {
+				return nil, E.Cause(err, "parse filter[", i, "]")
+			}
+			outbound.providers = append(outbound.providers, providerOutbound{
+				providerTag: provider.Tag,
+				filter:      f,
+			})
+		}
+	}
+	if len(outbound.tags) == 0 && len(outbound.providers) == 0 {
+		return nil, E.New("missing tags and providers")
 	}
 	return outbound, nil
 }
 
 func (s *URLTest) Start() error {
+	outboundMap := make(map[string]struct{})
 	outbounds := make([]adapter.Outbound, 0, len(s.tags))
 	for i, tag := range s.tags {
+		if _, loaded := outboundMap[tag]; loaded {
+			continue
+		}
 		detour, loaded := s.router.Outbound(tag)
 		if !loaded {
 			return E.New("outbound ", i, " not found: ", tag)
 		}
 		outbounds = append(outbounds, detour)
+		outboundMap[tag] = struct{}{}
 	}
+	for i, p := range s.providers {
+		provider, loaded := s.router.OutboundProvider(p.providerTag)
+		if !loaded {
+			return E.New("outbound provider[", i, "] provider not found: ", p.providerTag)
+		}
+		for _, outbound := range provider.BasicOutbounds() {
+			if p.filter.MatchOutbound(outbound) {
+				_, loaded := outboundMap[outbound.Tag()]
+				if loaded {
+					return E.New("duplicate outbound tag: ", outbound.Tag())
+				}
+				outboundMap[outbound.Tag()] = struct{}{}
+				outbounds = append(outbounds, outbound)
+			}
+		}
+		for _, outbound := range provider.GroupOutbounds() {
+			if p.filter.MatchOutbound(outbound) {
+				_, loaded := outboundMap[outbound.Tag()]
+				if loaded {
+					return E.New("duplicate outbound tag: ", outbound.Tag())
+				}
+				outboundMap[outbound.Tag()] = struct{}{}
+				outbounds = append(outbounds, outbound)
+			}
+		}
+	}
+	if len(outbounds) == 0 {
+		return E.New("missing outbounds")
+	}
+	newOutbounds := make([]adapter.Outbound, len(outbounds))
+	s.outboundTags = make([]string, 0, len(outbounds))
+	copy(newOutbounds, outbounds)
+	for _, outbound := range outbounds {
+		s.outboundTags = append(s.outboundTags, outbound.Tag())
+	}
+	outbounds = newOutbounds
 	group, err := NewURLTestGroup(
 		s.ctx,
 		s.router,
@@ -89,6 +149,15 @@ func (s *URLTest) Start() error {
 	}
 	s.group = group
 	return nil
+}
+
+func (s *URLTest) Dependencies() []string {
+	dependencies := make([]string, 0, len(s.tags)+len(s.providers))
+	dependencies = append(dependencies, s.dependencies...)
+	for _, provider := range s.providers {
+		dependencies = append(dependencies, provider.providerTag)
+	}
+	return dependencies
 }
 
 func (s *URLTest) PostStart() error {
@@ -112,7 +181,7 @@ func (s *URLTest) Now() string {
 }
 
 func (s *URLTest) All() []string {
-	return s.tags
+	return s.outboundTags
 }
 
 func (s *URLTest) URLTest(ctx context.Context) (map[string]uint16, error) {

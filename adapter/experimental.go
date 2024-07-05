@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/sagernet/sing-box/common/urltest"
-	"github.com/sagernet/sing-dns"
+	"github.com/sagernet/sing-box/option"
+	dns "github.com/sagernet/sing-dns"
+	"github.com/sagernet/sing/common/json"
 	N "github.com/sagernet/sing/common/network"
 	"github.com/sagernet/sing/common/rw"
 )
@@ -42,6 +44,9 @@ type CacheFile interface {
 	StoreGroupExpand(group string, expand bool) error
 	LoadRuleSet(tag string) *SavedRuleSet
 	SaveRuleSet(tag string, set *SavedRuleSet) error
+
+	LoadOutboundProviderInfo(tag string) *OutboundProviderInfo
+	SaveOutboundProviderInfo(tag string, info *OutboundProviderInfo) error
 }
 
 type SavedRuleSet struct {
@@ -98,6 +103,89 @@ func (s *SavedRuleSet) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+type OutboundProviderInfo struct {
+	LastUpdated time.Time
+	Expired     time.Time
+	Total       uint64
+	Download    uint64
+	Upload      uint64
+	Outbounds   []option.Outbound
+}
+
+func (o *OutboundProviderInfo) MarshalBinary() ([]byte, error) {
+	var buffer bytes.Buffer
+	err := binary.Write(&buffer, binary.BigEndian, uint64(o.LastUpdated.Unix()))
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(&buffer, binary.BigEndian, uint64(o.Expired.Unix()))
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(&buffer, binary.BigEndian, o.Total)
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(&buffer, binary.BigEndian, o.Download)
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(&buffer, binary.BigEndian, o.Upload)
+	if err != nil {
+		return nil, err
+	}
+	encoder := json.NewEncoder(&buffer)
+	err = encoder.Encode(o.Outbounds)
+	if err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+func (o *OutboundProviderInfo) UnmarshalBinary(data []byte) error {
+	reader := bytes.NewReader(data)
+	var lastUpdatedUint64 uint64
+	err := binary.Read(reader, binary.BigEndian, &lastUpdatedUint64)
+	if err != nil {
+		return err
+	}
+	lastUpdated := time.Unix(int64(lastUpdatedUint64), 0)
+	var expiredUint64 uint64
+	err = binary.Read(reader, binary.BigEndian, &expiredUint64)
+	if err != nil {
+		return err
+	}
+	expired := time.Unix(int64(expiredUint64), 0)
+	var total uint64
+	err = binary.Read(reader, binary.BigEndian, &total)
+	if err != nil {
+		return err
+	}
+	var download uint64
+	err = binary.Read(reader, binary.BigEndian, &download)
+	if err != nil {
+		return err
+	}
+	var upload uint64
+	err = binary.Read(reader, binary.BigEndian, &upload)
+	if err != nil {
+		return err
+	}
+	decoder := json.NewDecoder(reader)
+	var outbounds []option.Outbound
+	err = decoder.Decode(&outbounds)
+	if err != nil {
+		return err
+	}
+	o.LastUpdated = lastUpdated
+	o.Expired = expired
+	o.Total = total
+	o.Download = download
+	o.Upload = upload
+	o.Outbounds = outbounds
 	return nil
 }
 

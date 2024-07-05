@@ -18,3 +18,12 @@ type Outbound interface {
 	NewConnection(ctx context.Context, conn net.Conn, metadata InboundContext) error
 	NewPacketConnection(ctx context.Context, conn N.PacketConn, metadata InboundContext) error
 }
+
+type OutboundProvider interface {
+	OutboundGroup
+	Update(ctx context.Context) error
+	ProviderInfo() *OutboundProviderInfo
+	Outbound(tag string) (Outbound, bool)
+	BasicOutbounds() []Outbound
+	GroupOutbounds() []OutboundGroup
+}

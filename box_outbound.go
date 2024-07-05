@@ -53,8 +53,20 @@ func (s *Box) startOutbounds() error {
 					return E.Cause(err, "initialize outbound/", outboundToStart.Type(), "[", outboundTag, "]")
 				}
 			}
+			if provider, isProvider := outboundToStart.(adapter.OutboundProvider); isProvider {
+				for _, outbound := range provider.BasicOutbounds() {
+					outboundTags[outbound] = outbound.Tag()
+					outbounds[outbound.Tag()] = outbound
+					started[outbound.Tag()] = true
+				}
+				for _, outbound := range provider.GroupOutbounds() {
+					outboundTags[outbound] = outbound.Tag()
+					outbounds[outbound.Tag()] = outbound
+					started[outbound.Tag()] = true
+				}
+			}
 		}
-		if len(started) == len(s.outbounds) {
+		if len(started) == len(outbounds) {
 			break
 		}
 		if canContinue {

@@ -26,10 +26,10 @@ import (
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/outbound"
 	"github.com/sagernet/sing-box/transport/fakeip"
-	"github.com/sagernet/sing-dns"
-	"github.com/sagernet/sing-mux"
-	"github.com/sagernet/sing-tun"
-	"github.com/sagernet/sing-vmess"
+	dns "github.com/sagernet/sing-dns"
+	mux "github.com/sagernet/sing-mux"
+	tun "github.com/sagernet/sing-tun"
+	vmess "github.com/sagernet/sing-vmess"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/buf"
 	"github.com/sagernet/sing/common/bufio"
@@ -56,6 +56,10 @@ type Router struct {
 	inboundByTag                       map[string]adapter.Inbound
 	outbounds                          []adapter.Outbound
 	outboundByTag                      map[string]adapter.Outbound
+	outboundProviders                  []adapter.OutboundProvider
+	outboundProviderByTag              map[string]adapter.OutboundProvider
+	cacheAllOutbounds                  []adapter.Outbound
+	cacheAllOutboundByTag              map[string]adapter.Outbound
 	rules                              []adapter.Rule
 	defaultDetour                      string
 	defaultOutboundForConnection       adapter.Outbound
@@ -114,6 +118,8 @@ func NewRouter(
 		logger:                logFactory.NewLogger("router"),
 		dnsLogger:             logFactory.NewLogger("dns"),
 		outboundByTag:         make(map[string]adapter.Outbound),
+		outboundProviderByTag: make(map[string]adapter.OutboundProvider),
+		cacheAllOutboundByTag: make(map[string]adapter.Outbound),
 		rules:                 make([]adapter.Rule, 0, len(options.Rules)),
 		dnsRules:              make([]adapter.DNSRule, 0, len(dnsOptions.Rules)),
 		ruleSetMap:            make(map[string]adapter.RuleSet),
@@ -439,7 +445,86 @@ func (r *Router) Outbounds() []adapter.Outbound {
 	if !r.started {
 		return nil
 	}
-	return r.outbounds
+	if len(r.cacheAllOutbounds) == 0 {
+		cacheAllOutbounds := make([]adapter.Outbound, 0, len(r.outbounds))
+		cacheAllOutbounds = append(cacheAllOutbounds, r.outbounds...)
+		if len(r.outboundProviders) > 0 {
+			for _, provider := range r.outboundProviders {
+				basicOutbounds := provider.BasicOutbounds()
+				if len(basicOutbounds) > 0 {
+					cacheAllOutbounds = append(cacheAllOutbounds, basicOutbounds...)
+				}
+				groupOutbounds := provider.GroupOutbounds()
+				if len(groupOutbounds) > 0 {
+					for _, outbound := range groupOutbounds {
+						cacheAllOutbounds = append(cacheAllOutbounds, outbound)
+					}
+				}
+			}
+		}
+		r.cacheAllOutbounds = cacheAllOutbounds
+	}
+	return r.cacheAllOutbounds
+}
+
+func (r *Router) OutboundProvider(tag string) (adapter.OutboundProvider, bool) {
+	provider, ok := r.outboundProviderByTag[tag]
+	return provider, ok
+}
+
+func (r *Router) OutboundProviders() []adapter.OutboundProvider {
+	return r.outboundProviders
+}
+
+func (r *Router) RegisterOutboundProvider(tag string, provider adapter.OutboundProvider) error {
+	_, ok := r.outboundProviderByTag[tag]
+	if ok {
+		return E.New("duplicate outbound provider tag: ", tag)
+	}
+	r.outboundProviderByTag[tag] = provider
+	r.outboundProviders = append(r.outboundProviders, provider)
+	return nil
+}
+
+func (r *Router) CheckOutboundProvider(tag string) error {
+	provider, loaded := r.OutboundProvider(tag)
+	if !loaded {
+		return E.New("outbound provider not found: ", tag)
+	}
+	for _, outbound := range provider.BasicOutbounds() {
+		_, loaded = r.outboundByTag[outbound.Tag()]
+		if loaded {
+			return E.New("duplicate outbound: ", outbound.Tag())
+		}
+		for _, pr := range r.outboundProviders {
+			if pr == provider {
+				continue
+			}
+			_, loaded = pr.Outbound(outbound.Tag())
+			if loaded {
+				return E.New("duplicate outbound: ", outbound.Tag())
+			}
+		}
+	}
+	groupOutbounds := provider.GroupOutbounds()
+	if len(groupOutbounds) > 0 {
+		for _, outbound := range groupOutbounds {
+			_, loaded = r.outboundByTag[outbound.Tag()]
+			if loaded {
+				return E.New("duplicate outbound: ", outbound.Tag())
+			}
+			for _, pr := range r.outboundProviders {
+				if pr == provider {
+					continue
+				}
+				_, loaded = pr.Outbound(outbound.Tag())
+				if loaded {
+					return E.New("duplicate outbound: ", outbound.Tag())
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (r *Router) PreStart() error {
@@ -746,7 +831,22 @@ func (r *Router) Cleanup() error {
 }
 
 func (r *Router) Outbound(tag string) (adapter.Outbound, bool) {
-	outbound, loaded := r.outboundByTag[tag]
+	outbound, loaded := r.cacheAllOutboundByTag[tag]
+	if loaded {
+		return outbound, true
+	}
+	outbound, loaded = r.outboundByTag[tag]
+	if !loaded && len(r.outboundProviders) > 0 {
+		for _, provider := range r.outboundProviders {
+			outbound, loaded = provider.Outbound(tag)
+			if loaded {
+				break
+			}
+		}
+	}
+	if loaded {
+		r.cacheAllOutboundByTag[tag] = outbound
+	}
 	return outbound, loaded
 }
 

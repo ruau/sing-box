@@ -23,6 +23,8 @@ var (
 	bucketExpand   = []byte("group_expand")
 	bucketMode     = []byte("clash_mode")
 	bucketRuleSet  = []byte("rule_set")
+	//
+	bucketOutboundProviderInfo = []byte("outbound_provider_info")
 
 	bucketNameList = []string{
 		string(bucketSelected),
@@ -30,6 +32,8 @@ var (
 		string(bucketMode),
 		string(bucketRuleSet),
 		string(bucketRDRC),
+		//
+		string(bucketOutboundProviderInfo),
 	}
 
 	cacheIDDefault = []byte("default")
@@ -311,5 +315,38 @@ func (c *CacheFile) SaveRuleSet(tag string, set *adapter.SavedRuleSet) error {
 			return err
 		}
 		return bucket.Put([]byte(tag), setBinary)
+	})
+}
+
+func (c *CacheFile) LoadOutboundProviderInfo(tag string) *adapter.OutboundProviderInfo {
+	var outboundProviderInfo adapter.OutboundProviderInfo
+	err := c.DB.View(func(t *bbolt.Tx) error {
+		bucket := c.bucket(t, bucketOutboundProviderInfo)
+		if bucket == nil {
+			return os.ErrNotExist
+		}
+		infoBinary := bucket.Get([]byte(tag))
+		if len(infoBinary) == 0 {
+			return os.ErrInvalid
+		}
+		return outboundProviderInfo.UnmarshalBinary(infoBinary)
+	})
+	if err != nil {
+		return nil
+	}
+	return &outboundProviderInfo
+}
+
+func (c *CacheFile) SaveOutboundProviderInfo(tag string, info *adapter.OutboundProviderInfo) error {
+	return c.DB.Batch(func(t *bbolt.Tx) error {
+		bucket, err := c.createBucket(t, bucketOutboundProviderInfo)
+		if err != nil {
+			return err
+		}
+		infoBinary, err := info.MarshalBinary()
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(tag), infoBinary)
 	})
 }

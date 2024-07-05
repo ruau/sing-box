@@ -30,6 +30,8 @@ const (
 	TypeURLTest  = "urltest"
 )
 
+const TypeProvider = "provider"
+
 func ProxyDisplayName(proxyType string) string {
 	switch proxyType {
 	case TypeTun:

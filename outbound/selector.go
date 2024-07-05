@@ -6,6 +6,7 @@ import (
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/interrupt"
+	"github.com/sagernet/sing-box/common/outboundprovider/filter"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
@@ -24,8 +25,10 @@ type Selector struct {
 	myOutboundAdapter
 	ctx                          context.Context
 	tags                         []string
+	providers                    []providerOutbound
 	defaultTag                   string
 	outbounds                    map[string]adapter.Outbound
+	outboundTags                 []string
 	selected                     adapter.Outbound
 	interruptGroup               *interrupt.Group
 	interruptExternalConnections bool
@@ -47,10 +50,35 @@ func NewSelector(ctx context.Context, router adapter.Router, logger log.ContextL
 		interruptGroup:               interrupt.NewGroup(),
 		interruptExternalConnections: options.InterruptExistConnections,
 	}
-	if len(outbound.tags) == 0 {
-		return nil, E.New("missing tags")
+	if len(options.Providers) > 0 {
+		outbound.providers = make([]providerOutbound, 0, len(options.Providers))
+		for i, provider := range options.Providers {
+			if provider.Tag == "" {
+				return nil, E.New("missing provider tag[", i, "]")
+			}
+			f, err := filter.NewOutboundFilter(provider.OutboundFilterOptions)
+			if err != nil {
+				return nil, E.Cause(err, "parse filter[", i, "]")
+			}
+			outbound.providers = append(outbound.providers, providerOutbound{
+				providerTag: provider.Tag,
+				filter:      f,
+			})
+		}
+	}
+	if len(outbound.tags) == 0 && len(outbound.providers) == 0 {
+		return nil, E.New("missing tags and providers")
 	}
 	return outbound, nil
+}
+
+func (s *Selector) Dependencies() []string {
+	dependencies := make([]string, 0, len(s.tags)+len(s.providers))
+	dependencies = append(dependencies, s.dependencies...)
+	for _, provider := range s.providers {
+		dependencies = append(dependencies, provider.providerTag)
+	}
+	return dependencies
 }
 
 func (s *Selector) Network() []string {
@@ -61,13 +89,47 @@ func (s *Selector) Network() []string {
 }
 
 func (s *Selector) Start() error {
+	outboundTags := make([]string, 0, len(s.tags))
 	for i, tag := range s.tags {
 		detour, loaded := s.router.Outbound(tag)
 		if !loaded {
 			return E.New("outbound ", i, " not found: ", tag)
 		}
 		s.outbounds[tag] = detour
+		outboundTags = append(outboundTags, tag)
 	}
+
+	for i, p := range s.providers {
+		provider, loaded := s.router.OutboundProvider(p.providerTag)
+		if !loaded {
+			return E.New("outbound provider[", i, "] provider not found: ", p.providerTag)
+		}
+		for _, outbound := range provider.BasicOutbounds() {
+			if p.filter.MatchOutbound(outbound) {
+				_, loaded := s.outbounds[outbound.Tag()]
+				if loaded {
+					return E.New("duplicate outbound tag: ", outbound.Tag())
+				}
+				s.outbounds[outbound.Tag()] = outbound
+				outboundTags = append(outboundTags, outbound.Tag())
+			}
+		}
+		for _, outbound := range provider.GroupOutbounds() {
+			if p.filter.MatchOutbound(outbound) {
+				_, loaded := s.outbounds[outbound.Tag()]
+				if loaded {
+					return E.New("duplicate outbound tag: ", outbound.Tag())
+				}
+				s.outbounds[outbound.Tag()] = outbound
+				outboundTags = append(outboundTags, outbound.Tag())
+			}
+		}
+	}
+	if len(s.outbounds) == 0 {
+		return E.New("missing outbounds")
+	}
+	s.outboundTags = make([]string, len(s.outbounds))
+	copy(s.outboundTags, outboundTags)
 
 	if s.tag != "" {
 		cacheFile := service.FromContext[adapter.CacheFile](s.ctx)
@@ -101,7 +163,7 @@ func (s *Selector) Now() string {
 }
 
 func (s *Selector) All() []string {
-	return s.tags
+	return s.outboundTags
 }
 
 func (s *Selector) SelectOutbound(tag string) bool {
@@ -157,4 +219,9 @@ func RealTag(detour adapter.Outbound) string {
 		return group.Now()
 	}
 	return detour.Tag()
+}
+
+type providerOutbound struct {
+	providerTag string
+	filter      *filter.OutboundFilter
 }

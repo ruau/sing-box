@@ -1,6 +1,8 @@
 module github.com/sagernet/sing-box
 
-go 1.20
+go 1.21
+
+toolchain go1.22.4
 
 require (
 	berty.tech/go-libtor v1.0.385
@@ -24,7 +26,7 @@ require (
 	github.com/sagernet/cloudflare-tls v0.0.0-20231208171750-a4483c1b7cd1
 	github.com/sagernet/gomobile v0.1.3
 	github.com/sagernet/gvisor v0.0.0-20240428053021-e691de28565f
-	github.com/sagernet/quic-go v0.45.0-beta.2
+	github.com/sagernet/quic-go v0.45.1-beta.2
 	github.com/sagernet/reality v0.0.0-20230406110435-ee17307e7691
 	github.com/sagernet/sing v0.5.0-alpha.11
 	github.com/sagernet/sing-dns v0.3.0-beta.5
@@ -56,6 +58,8 @@ require (
 //replace github.com/sagernet/sing => ../sing
 
 require (
+	github.com/Dreamacro/clash v1.18.0 // indirect
+	github.com/Dreamacro/protobytes v0.0.0-20230617041236-6500a9f4f158 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/andybalholm/brotli v1.0.6 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -75,6 +79,7 @@ require (
 	github.com/libdns/libdns v0.2.2 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/onsi/ginkgo/v2 v2.9.7 // indirect
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
