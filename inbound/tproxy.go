@@ -9,6 +9,7 @@ import (
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/redir"
+	"github.com/sagernet/sing-box/common/script"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
@@ -24,9 +25,12 @@ import (
 type TProxy struct {
 	myInboundAdapter
 	udpNat *udpnat.Service[netip.AddrPort]
+
+	// Script
+	scripts []*script.Script
 }
 
-func NewTProxy(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.TProxyInboundOptions) *TProxy {
+func NewTProxy(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.TProxyInboundOptions) (*TProxy, error) {
 	tproxy := &TProxy{
 		myInboundAdapter: myInboundAdapter{
 			protocol:      C.TypeTProxy,
@@ -48,13 +52,58 @@ func NewTProxy(ctx context.Context, router adapter.Router, logger log.ContextLog
 	tproxy.oobPacketHandler = tproxy
 	tproxy.udpNat = udpnat.New[netip.AddrPort](int64(udpTimeout.Seconds()), tproxy.upstreamContextHandler())
 	tproxy.packetUpstream = tproxy.udpNat
-	return tproxy
+
+	// Script
+	if len(options.Scripts) > 0 {
+		tproxy.scripts = make([]*script.Script, 0, len(options.Scripts))
+		for _, opt := range options.Scripts {
+			s, err := script.NewScript(ctx, logger, opt)
+			if err != nil {
+				return nil, E.Cause(err, "initialize script")
+			}
+			tproxy.scripts = append(tproxy.scripts, s)
+		}
+	}
+
+	return tproxy, nil
 }
 
 func (t *TProxy) Start() error {
+	if len(t.scripts) > 0 {
+		// Script
+		for i, s := range t.scripts {
+			err := s.CallWithEvent(t.ctx, script.EventBeforeStart)
+			if err != nil {
+				return E.Cause(err, "call script[", i, "] ", script.EventBeforeStart)
+			}
+		}
+	}
 	err := t.myInboundAdapter.Start()
 	if err != nil {
+		if len(t.scripts) > 0 {
+			// Script
+			for _, s := range t.scripts {
+				s.CallWithEvent(t.ctx, script.EventStartFailed)
+			}
+		}
 		return err
+	}
+	defer func() {
+		if err != nil && len(t.scripts) > 0 {
+			// Script
+			for _, s := range t.scripts {
+				s.CallWithEvent(t.ctx, script.EventStartFailed)
+			}
+		}
+	}()
+	if len(t.scripts) > 0 {
+		// Script
+		for i, s := range t.scripts {
+			err = s.CallWithEvent(t.ctx, script.EventAfterStart)
+			if err != nil {
+				return E.Cause(err, "call script[", i, "] ", script.EventAfterStart)
+			}
+		}
 	}
 	if t.tcpListener != nil {
 		err = control.Conn(common.MustCast[syscall.Conn](t.tcpListener), func(fd uintptr) error {
@@ -73,6 +122,23 @@ func (t *TProxy) Start() error {
 		}
 	}
 	return nil
+}
+
+func (t *TProxy) Close() error {
+	if len(t.scripts) > 0 {
+		// Script
+		for _, s := range t.scripts {
+			s.CallWithEvent(context.Background(), script.EventBeforeClose)
+		}
+	}
+	err := t.myInboundAdapter.Close()
+	if len(t.scripts) > 0 {
+		// Script
+		for _, s := range t.scripts {
+			s.CallWithEvent(context.Background(), script.EventAfterClose)
+		}
+	}
+	return err
 }
 
 func (t *TProxy) NewConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext) error {

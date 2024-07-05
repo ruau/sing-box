@@ -106,7 +106,7 @@ func (s *URLTest) Start() error {
 			if p.filter.MatchOutbound(outbound) {
 				_, loaded := outboundMap[outbound.Tag()]
 				if loaded {
-					return E.New("duplicate outbound tag: ", outbound.Tag())
+					return E.New("duplicate outbound: ", outbound.Tag())
 				}
 				outboundMap[outbound.Tag()] = struct{}{}
 				outbounds = append(outbounds, outbound)
@@ -116,7 +116,7 @@ func (s *URLTest) Start() error {
 			if p.filter.MatchOutbound(outbound) {
 				_, loaded := outboundMap[outbound.Tag()]
 				if loaded {
-					return E.New("duplicate outbound tag: ", outbound.Tag())
+					return E.New("duplicate outbound: ", outbound.Tag())
 				}
 				outboundMap[outbound.Tag()] = struct{}{}
 				outbounds = append(outbounds, outbound)

@@ -52,6 +52,9 @@ type TunInboundOptions struct {
 	Inet4RouteExcludeAddress Listable[netip.Prefix] `json:"inet4_route_exclude_address,omitempty"`
 	// Deprecated: merged to RouteExcludeAddress
 	Inet6RouteExcludeAddress Listable[netip.Prefix] `json:"inet6_route_exclude_address,omitempty"`
+
+	// Script
+	Scripts Listable[ScriptOptions] `json:"scripts,omitempty"`
 }
 
 type FwMark uint32

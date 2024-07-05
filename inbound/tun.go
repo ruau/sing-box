@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/script"
 	"github.com/sagernet/sing-box/common/taskmonitor"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/experimental/libbox/platform"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
-	"github.com/sagernet/sing-tun"
+	tun "github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
@@ -50,6 +51,9 @@ type Tun struct {
 	routeExcludeRuleSetCallback []*list.Element[adapter.RuleSetUpdateCallback]
 	routeAddressSet             []*netipx.IPSet
 	routeExcludeAddressSet      []*netipx.IPSet
+
+	// Script
+	scripts []*script.Script
 }
 
 func NewTun(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.TunInboundOptions, platformInterface platform.Interface) (*Tun, error) {
@@ -236,6 +240,19 @@ func NewTun(ctx context.Context, router adapter.Router, logger log.ContextLogger
 			}
 		}
 	}
+
+	// Script
+	if !C.IsAndroid && !C.IsIos && len(options.Scripts) > 0 {
+		inbound.scripts = make([]*script.Script, 0, len(options.Scripts))
+		for _, opt := range options.Scripts {
+			s, err := script.NewScript(ctx, logger, opt)
+			if err != nil {
+				return nil, E.Cause(err, "initialize script")
+			}
+			inbound.scripts = append(inbound.scripts, s)
+		}
+	}
+
 	return inbound, nil
 }
 
@@ -290,6 +307,15 @@ func (t *Tun) Start() error {
 		tunInterface tun.Tun
 		err          error
 	)
+	if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+		// Script
+		for i, s := range t.scripts {
+			err = s.CallWithEvent(t.ctx, script.EventBeforeStart)
+			if err != nil {
+				return E.Cause(err, "call script[", i, "] ", script.EventBeforeStart)
+			}
+		}
+	}
 	monitor := taskmonitor.New(t.logger, C.StartTimeout)
 	monitor.Start("open tun interface")
 	if t.platformInterface != nil {
@@ -299,7 +325,30 @@ func (t *Tun) Start() error {
 	}
 	monitor.Finish()
 	if err != nil {
+		if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+			// Script
+			for _, s := range t.scripts {
+				s.CallWithEvent(t.ctx, script.EventStartFailed)
+			}
+		}
 		return E.Cause(err, "configure tun interface")
+	}
+	defer func() {
+		if err != nil && !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+			// Script
+			for _, s := range t.scripts {
+				s.CallWithEvent(t.ctx, script.EventStartFailed)
+			}
+		}
+	}()
+	if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+		// Script
+		for i, s := range t.scripts {
+			err = s.CallWithEvent(t.ctx, script.EventAfterStart)
+			if err != nil {
+				return E.Cause(err, "call script[", i, "] ", script.EventAfterStart)
+			}
+		}
 	}
 	t.logger.Trace("creating stack")
 	t.tunIf = tunInterface
@@ -311,7 +360,8 @@ func (t *Tun) Start() error {
 		forwarderBindInterface = true
 		includeAllNetworks = t.platformInterface.IncludeAllNetworks()
 	}
-	tunStack, err := tun.NewStack(t.stack, tun.StackOptions{
+	var tunStack tun.Stack
+	tunStack, err = tun.NewStack(t.stack, tun.StackOptions{
 		Context:                t.ctx,
 		Tun:                    tunInterface,
 		TunOptions:             t.tunOptions,
@@ -360,6 +410,12 @@ func (t *Tun) PostStart() error {
 		err := t.autoRedirect.Start()
 		monitor.Finish()
 		if err != nil {
+			if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+				// Script
+				for _, s := range t.scripts {
+					s.CallWithEvent(t.ctx, script.EventStartFailed)
+				}
+			}
 			return E.Cause(err, "auto-redirect")
 		}
 		for _, routeRuleSet := range t.routeRuleSet {
@@ -385,11 +441,24 @@ func (t *Tun) updateRouteAddressSet(it adapter.RuleSet) {
 }
 
 func (t *Tun) Close() error {
-	return common.Close(
+	if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+		// Script
+		for _, s := range t.scripts {
+			s.CallWithEvent(context.Background(), script.EventBeforeClose)
+		}
+	}
+	err := common.Close(
 		t.tunStack,
 		t.tunIf,
 		t.autoRedirect,
 	)
+	if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+		// Script
+		for _, s := range t.scripts {
+			s.CallWithEvent(context.Background(), script.EventAfterClose)
+		}
+	}
+	return err
 }
 
 func (t *Tun) NewConnection(ctx context.Context, conn net.Conn, upstreamMetadata M.Metadata) error {

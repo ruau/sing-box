@@ -108,7 +108,7 @@ func (s *Selector) Start() error {
 			if p.filter.MatchOutbound(outbound) {
 				_, loaded := s.outbounds[outbound.Tag()]
 				if loaded {
-					return E.New("duplicate outbound tag: ", outbound.Tag())
+					return E.New("duplicate outbound: ", outbound.Tag())
 				}
 				s.outbounds[outbound.Tag()] = outbound
 				outboundTags = append(outboundTags, outbound.Tag())
@@ -118,7 +118,7 @@ func (s *Selector) Start() error {
 			if p.filter.MatchOutbound(outbound) {
 				_, loaded := s.outbounds[outbound.Tag()]
 				if loaded {
-					return E.New("duplicate outbound tag: ", outbound.Tag())
+					return E.New("duplicate outbound: ", outbound.Tag())
 				}
 				s.outbounds[outbound.Tag()] = outbound
 				outboundTags = append(outboundTags, outbound.Tag())
