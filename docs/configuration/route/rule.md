@@ -1,3 +1,12 @@
+---
+icon: material/alert-decagram
+---
+
+!!! quote "Changes in sing-box 1.10.0"
+
+    :material-delete-clock: [rule_set_ipcidr_match_source](#rule_set_ipcidr_match_source)  
+    :material-plus: [rule_set_ip_cidr_match_source](#rule_set_ip_cidr_match_source)  
+
 !!! quote "Changes in sing-box 1.8.0"
 
     :material-plus: [rule_set](#rule_set)  
@@ -105,7 +114,9 @@
           "geoip-cn",
           "geosite-cn"
         ],
+        // deprecated
         "rule_set_ipcidr_match_source": false,
+        "rule_set_ip_cidr_match_source": false,
         "invert": false,
         "outbound": "direct"
       },
@@ -137,7 +148,7 @@
     (`source_port` || `source_port_range`) &&  
     `other fields`
 
-    Additionally, included rule sets can be considered merged rather than as a single rule sub-item.
+    Additionally, included rule-sets can be considered merged rather than as a single rule sub-item.
 
 #### inbound
 
@@ -297,13 +308,23 @@ Match WiFi BSSID.
 
 !!! question "Since sing-box 1.8.0"
 
-Match [Rule Set](/configuration/route/#rule_set).
+Match [rule-set](/configuration/route/#rule_set).
 
 #### rule_set_ipcidr_match_source
 
 !!! question "Since sing-box 1.8.0"
 
-Make `ipcidr` in rule sets match the source IP.
+!!! failure "Deprecated in sing-box 1.10.0"
+
+    `rule_set_ipcidr_match_source` is renamed to `rule_set_ip_cidr_match_source` and will be remove in sing-box 1.11.0.
+
+Make `ip_cidr` in rule-sets match the source IP.
+
+#### rule_set_ip_cidr_match_source
+
+!!! question "Since sing-box 1.10.0"
+
+Make `ip_cidr` in rule-sets match the source IP.
 
 #### invert
 
