@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sagernet/fswatch"
 	"github.com/sagernet/sing-box/adapter"
@@ -25,14 +26,15 @@ import (
 var _ adapter.RuleSet = (*LocalRuleSet)(nil)
 
 type LocalRuleSet struct {
-	router     adapter.Router
-	logger     logger.Logger
-	tag        string
-	rules      []adapter.HeadlessRule
-	metadata   adapter.RuleSetMetadata
-	fileFormat string
-	watcher    *fswatch.Watcher
-	refs       atomic.Int32
+	router        adapter.Router
+	logger        logger.Logger
+	tag           string
+	rules         []adapter.HeadlessRule
+	metadata      adapter.RuleSetMetadata
+	fileFormat    string
+	watcher       *fswatch.Watcher
+	refs          atomic.Int32
+	localFilePath string
 }
 
 func NewLocalRuleSet(router adapter.Router, logger logger.Logger, options option.RuleSet) (*LocalRuleSet, error) {
@@ -59,6 +61,7 @@ func NewLocalRuleSet(router adapter.Router, logger logger.Logger, options option
 	if options.Type == C.RuleSetTypeLocal {
 		var watcher *fswatch.Watcher
 		filePath, _ := filepath.Abs(options.LocalOptions.Path)
+		ruleSet.localFilePath = filePath
 		watcher, err := fswatch.NewWatcher(fswatch.Options{
 			Path: []string{filePath},
 			Callback: func(path string) {
@@ -78,6 +81,10 @@ func NewLocalRuleSet(router adapter.Router, logger logger.Logger, options option
 
 func (s *LocalRuleSet) Name() string {
 	return s.tag
+}
+
+func (s *LocalRuleSet) Type() string {
+	return "local"
 }
 
 func (s *LocalRuleSet) String() string {
@@ -138,6 +145,9 @@ func (s *LocalRuleSet) reloadRules(headlessRules []option.HeadlessRule) error {
 	metadata.ContainsProcessRule = hasHeadlessRule(headlessRules, isProcessHeadlessRule)
 	metadata.ContainsWIFIRule = hasHeadlessRule(headlessRules, isWIFIHeadlessRule)
 	metadata.ContainsIPCIDRRule = hasHeadlessRule(headlessRules, isIPCIDRHeadlessRule)
+	metadata.Format = s.fileFormat
+	metadata.LastUpdated = time.Now()
+	metadata.RuleNum = len(rules)
 	s.rules = rules
 	s.metadata = metadata
 	return nil
@@ -176,6 +186,17 @@ func (s *LocalRuleSet) RegisterCallback(callback adapter.RuleSetUpdateCallback) 
 }
 
 func (s *LocalRuleSet) UnregisterCallback(element *list.Element[adapter.RuleSetUpdateCallback]) {
+}
+
+func (s *LocalRuleSet) Update(_ context.Context) error {
+	var err error
+	if s.localFilePath != "" {
+		err = s.reloadFile(s.localFilePath)
+		if err != nil {
+			s.logger.Error(E.Cause(err, "reload rule-set ", s.tag))
+		}
+	}
+	return err
 }
 
 func (s *LocalRuleSet) Close() error {
