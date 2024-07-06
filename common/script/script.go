@@ -14,6 +14,10 @@ import (
 
 type Event string
 
+func (e Event) String() string {
+	return string(e)
+}
+
 const (
 	EventBeforeStart Event = "before_start"
 	EventAfterStart  Event = "after_start"
@@ -38,6 +42,7 @@ type Script struct {
 	envs            map[string]string
 	currentDir      string
 	asService       bool
+	ignoreError     bool
 	acceptEventMap  map[Event]struct{}
 	stdoutLogWriter *logWriter
 	stderrLogWriter *logWriter
@@ -72,6 +77,7 @@ func NewScript(ctx context.Context, logger log.ContextLogger, options option.Scr
 		s.acceptEventMap = allAcceptEventMap
 	}
 	s.asService = options.AsService
+	s.ignoreError = options.IgnoreError
 	if options.AsService {
 		_, loaded1 := s.acceptEventMap[EventBeforeStart]
 		_, loaded2 := s.acceptEventMap[EventAfterStart]
@@ -129,7 +135,7 @@ func (s *Script) buildCommand(ctx context.Context, event Event) *exec.Cmd {
 		ctx = s.ctx
 	}
 	cmd := exec.CommandContext(ctx, s.command, s.args...)
-	cmd.Path = s.currentDir
+	cmd.Dir = s.currentDir
 	if s.envs != nil && len(s.envs) > 0 {
 		osEnvs := os.Environ()
 		cmd.Env = make([]string, 0, len(osEnvs)+len(s.envs)+1)
@@ -143,8 +149,12 @@ func (s *Script) buildCommand(ctx context.Context, event Event) *exec.Cmd {
 		cmd.Env = append(cmd.Env, osEnvs...)
 	}
 	cmd.Env = append(cmd.Env, fmt.Sprintf("SING_EVENT=%s", event))
-	cmd.Stdout = s.stdoutLogWriter
-	cmd.Stderr = s.stderrLogWriter
+	if s.stdoutLogWriter != nil {
+		cmd.Stdout = s.stdoutLogWriter
+	}
+	if s.stderrLogWriter != nil {
+		cmd.Stderr = s.stderrLogWriter
+	}
 	return cmd
 }
 
@@ -163,7 +173,12 @@ func (s *Script) CallWithEvent(ctx context.Context, event Event) error {
 	if s.asService {
 		err = cmd.Start()
 		if err != nil {
-			err = E.Cause(err, "start command: [", cmdString, "]")
+			if s.ignoreError {
+				s.logger.Warn("start command: [", cmdString, "] failed: ", err, ", ignore error")
+				err = nil
+			} else {
+				err = E.Cause(err, "start command: [", cmdString, "]")
+			}
 		} else {
 			go cmd.Wait()
 		}
@@ -171,7 +186,12 @@ func (s *Script) CallWithEvent(ctx context.Context, event Event) error {
 		err = cmd.Run()
 	}
 	if err != nil {
-		s.logger.Error("call script: [", cmdString, "] failed: ", err)
+		if s.ignoreError {
+			s.logger.Warn("call script: [", cmdString, "] failed: ", err, ", ignore error")
+			err = nil
+		} else {
+			s.logger.Error("call script: [", cmdString, "] failed: ", err)
+		}
 	} else {
 		s.logger.Debug("call script: [", cmdString, "] success")
 	}

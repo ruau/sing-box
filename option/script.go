@@ -7,6 +7,7 @@ type ScriptOptions struct {
 	CurrentDir     string            `json:"current_dir,omitempty"`
 	AcceptEvents   Listable[string]  `json:"accept_events,omitempty"`
 	AsService      bool              `json:"as_service,omitempty"`
+	IgnoreError    bool              `json:"ignore_error,omitempty"`
 	StdoutLogLevel string            `json:"stdout_log_level,omitempty"`
 	StderrLogLevel string            `json:"stderr_log_level,omitempty"`
 }

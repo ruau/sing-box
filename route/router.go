@@ -10,6 +10,7 @@ import (
 	"os/user"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
@@ -60,6 +61,7 @@ type Router struct {
 	outboundProviderByTag              map[string]adapter.OutboundProvider
 	cacheAllOutbounds                  []adapter.Outbound
 	cacheAllOutboundByTag              map[string]adapter.Outbound
+	cacheAllOutboundByTagLocker        sync.Mutex
 	rules                              []adapter.Rule
 	defaultDetour                      string
 	defaultOutboundForConnection       adapter.Outbound
@@ -834,7 +836,9 @@ func (r *Router) Cleanup() error {
 }
 
 func (r *Router) Outbound(tag string) (adapter.Outbound, bool) {
+	r.cacheAllOutboundByTagLocker.Lock()
 	outbound, loaded := r.cacheAllOutboundByTag[tag]
+	r.cacheAllOutboundByTagLocker.Unlock()
 	if loaded {
 		return outbound, true
 	}
@@ -848,7 +852,9 @@ func (r *Router) Outbound(tag string) (adapter.Outbound, bool) {
 		}
 	}
 	if loaded {
+		r.cacheAllOutboundByTagLocker.Lock()
 		r.cacheAllOutboundByTag[tag] = outbound
+		r.cacheAllOutboundByTagLocker.Unlock()
 	}
 	return outbound, loaded
 }
