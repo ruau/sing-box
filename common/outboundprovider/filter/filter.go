@@ -100,11 +100,15 @@ func (f *OutboundFilter) MatchOutbound(outbound adapter.Outbound) bool {
 }
 
 type invertFilter struct {
-	outboundFilterRule
+	inner outboundFilterRule
 }
 
 func (i *invertFilter) matchOutboundOptions(outbound *option.Outbound) bool {
-	return !i.outboundFilterRule.matchOutboundOptions(outbound)
+	return !i.inner.matchOutboundOptions(outbound)
+}
+
+func (t *invertFilter) matchOutbound(outbound adapter.Outbound) bool {
+	return !t.inner.matchOutbound(outbound)
 }
 
 type tagFilter string

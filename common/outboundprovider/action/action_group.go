@@ -73,12 +73,12 @@ func (a *actionGroup) execute(_ context.Context, _ adapter.Router, logger log.Co
 	switch newGroupOutbound.Type {
 	case C.TypeSelector:
 		outs := make([]string, 0, len(newGroupOutbound.SelectorOptions.Outbounds)+len(outbounds))
-		copy(outs, newGroupOutbound.SelectorOptions.Outbounds)
+		outs = append(outs, newGroupOutbound.SelectorOptions.Outbounds...)
 		outs = append(outs, outbounds...)
 		newGroupOutbound.SelectorOptions.Outbounds = outs
 	case C.TypeURLTest:
 		outs := make([]string, 0, len(newGroupOutbound.URLTestOptions.Outbounds)+len(outbounds))
-		copy(outs, newGroupOutbound.URLTestOptions.Outbounds)
+		outs = append(outs, newGroupOutbound.URLTestOptions.Outbounds...)
 		outs = append(outs, outbounds...)
 		newGroupOutbound.URLTestOptions.Outbounds = outs
 	}
