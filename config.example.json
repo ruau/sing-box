@@ -1,0 +1,113 @@
+{
+    "experimental": {
+        "cache_file": {
+            "enabled": true,
+            "path": "/sing-box/temp/cache.db"
+        },
+        "clash_api": {
+            "external_controller": "0.0.0.0:9090"
+        }
+    },
+    "outbounds": [
+        {
+            "tag": "sub",
+            "type": "provider", // Outbound Provider
+            "url": "http://example.com/sub.json", // 订阅链接，支持 Raw/Clash/Sing-box 类型
+            "cache_tag": "", // cache_file 的缓存标签，留空使用 tag
+            "http3": false, // 使用 HTTP/3 请求
+            "headers": {}, // HTTP 请求头：string -> string
+            "update_interval": "6h", // 自动订阅更新间隔，留空不自动更新
+            "request_timeout": "30s", // HTTP 请求超时时间，默认 30s
+            "selector": {}, // Outbound Provider 同名映射 Selector 的 Outbound 配置
+            "dialer": {}, // HTTP 请求的 Dial 字段，参考 Dial Fields
+            "actions": [ // 对节点的自定义处理
+                {
+                    // 节点过滤
+                    "operate": "filter",
+
+                    // Filter
+                    // 匹配规则，支持 Golang 正则表达式
+                    //  - 'tag:xxx' 表示匹配 Outbound Tag: xxx
+                    //  - 'type:xxx' 表示匹配 Outbound Type: xxx
+                    //  - 'xxx' 表示正则匹配 Outbound Tag: xxx
+                    "rules": ["剩余", "到期", "套餐"],
+                    // 逻辑运算符，支持 and/or，默认为 or
+                    //  - and 表示需要对 rules 中全部匹配
+                    //  - or 表示只需要对 rules 中任意一个匹配即可
+                    "logical": "or"
+                },
+                {
+                    // 节点重命名
+                    "operate": "rename",
+
+                    // Filter，同上
+                    "rules": [],
+                    "logical": "",
+
+                    // 重命名规则
+                    //  - 字符串替换，%s 表示原名
+                    //  - 例子：原名为 xxx，替换规则为 "yyy - %s"，则重命名为 "yyy - xxx"
+                    "format": ""
+                },
+                {
+                    // 设置节点 Dial Fields
+                    "operate": "dialer",
+
+                    // Filter，同上
+                    "rules": [],
+                    "logical": "",
+
+                    // Dial Fields
+                    // 删除的 Dial 字段，参考 Dial Fields
+                    "delete": ["bind_interface"],
+                    // 替换的 Dial 字段，参考 Dial Fields，注意类型
+                    "add": {
+                        "detour": "direct"
+                    }
+                },
+                {
+                    // 设置节点 Group (Selector/URLTest)
+                    "operate": "group",
+
+                    // Filter，同上
+                    "rules": [],
+                    "logical": "",
+
+                    // Group 配置，参考 Selector/URLTest 配置
+                    "options": {
+                        "tag": "sub-group",
+                        "type": "selector"
+                    }
+                }
+            ]
+        },
+        {
+            "tag": "select",
+            "type": "selector",
+            "outbounds": [
+                "out-1"
+            ],
+            // Outbound Provider 附加
+            "providers": [
+                {
+                    "tag": "sub", // Outbound Provider Tag
+
+                    // Filter，同上
+                    "rules": [],
+                    "logical": ""
+                }
+            ]
+        },
+        {
+            "tag": "urltest",
+            "type": "urltest",
+            "providers": [
+                {
+                    "tag": "sub",
+                    "rules": [],
+                    "logical": ""
+                }
+            ]
+        }
+    ]
+}
