@@ -27,7 +27,7 @@
 
                     // Filter
                     // 匹配规则，支持 Golang 正则表达式
-                    //  - 'tag:xxx' 表示匹配 Outbound Tag: xxx
+                    //  - 'tag:xxx' 表示关键词匹配 Outbound Tag: xxx
                     //  - 'type:xxx' 表示匹配 Outbound Type: xxx
                     //  - 'xxx' 表示正则匹配 Outbound Tag: xxx
                     "rules": ["剩余", "到期", "套餐"],

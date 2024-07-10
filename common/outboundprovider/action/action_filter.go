@@ -42,24 +42,30 @@ func newActionFilter(b []byte) (providerAction, error) {
 
 func (a *actionFilter) execute(_ context.Context, _ adapter.Router, logger log.ContextLogger, groupContext *ProviderActionGroupContext) (bool, error) {
 	removeOutboundTags := make(map[string]struct{})
-	for i, outbound := range groupContext.outbounds {
+	newOutbounds := make([]*option.Outbound, 0, len(groupContext.outbounds))
+	for _, outbound := range groupContext.outbounds {
 		if !a.filter.MatchOutboundOptions(outbound) {
+			newOutbounds = append(newOutbounds, outbound)
 			continue
 		}
-		groupContext.outbounds = append(groupContext.outbounds[:i], groupContext.outbounds[i+1:]...)
 		delete(groupContext.outboundMap, outbound.Tag)
 		removeOutboundTags[outbound.Tag] = struct{}{}
 		logger.Debug("action[filter]: tag: [", outbound.Tag, "]")
 	}
+	groupContext.outbounds = make([]*option.Outbound, 0, len(newOutbounds))
+	groupContext.outbounds = append(groupContext.outbounds, newOutbounds...)
 	for _, outbound := range groupContext.groupOutbounds {
 		switch outbound.Type {
 		case C.TypeSelector:
-			for i, out := range outbound.SelectorOptions.Outbounds {
+			newOutbounds := make([]string, 0, len(outbound.SelectorOptions.Outbounds))
+			for _, out := range outbound.SelectorOptions.Outbounds {
 				_, ok := removeOutboundTags[out]
-				if ok {
-					outbound.SelectorOptions.Outbounds = append(outbound.SelectorOptions.Outbounds[:i], outbound.SelectorOptions.Outbounds[i+1:]...)
+				if !ok {
+					newOutbounds = append(newOutbounds, out)
 				}
 			}
+			outbound.SelectorOptions.Outbounds = make([]string, 0, len(newOutbounds))
+			outbound.SelectorOptions.Outbounds = append(outbound.SelectorOptions.Outbounds, newOutbounds...)
 			if outbound.SelectorOptions.Default != "" {
 				_, ok := removeOutboundTags[outbound.SelectorOptions.Default]
 				if ok {
@@ -67,12 +73,15 @@ func (a *actionFilter) execute(_ context.Context, _ adapter.Router, logger log.C
 				}
 			}
 		case C.TypeURLTest:
-			for i, out := range outbound.URLTestOptions.Outbounds {
+			newOutbounds := make([]string, 0, len(outbound.URLTestOptions.Outbounds))
+			for _, out := range outbound.URLTestOptions.Outbounds {
 				_, ok := removeOutboundTags[out]
-				if ok {
-					outbound.URLTestOptions.Outbounds = append(outbound.URLTestOptions.Outbounds[:i], outbound.URLTestOptions.Outbounds[i+1:]...)
+				if !ok {
+					newOutbounds = append(newOutbounds, out)
 				}
 			}
+			outbound.URLTestOptions.Outbounds = make([]string, 0, len(newOutbounds))
+			outbound.URLTestOptions.Outbounds = append(outbound.URLTestOptions.Outbounds, newOutbounds...)
 		}
 	}
 	return true, nil

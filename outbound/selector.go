@@ -154,7 +154,7 @@ func (s *Selector) Start() error {
 		return nil
 	}
 
-	s.selected = s.outbounds[s.tags[0]]
+	s.selected = s.outbounds[s.outboundTags[0]]
 	return nil
 }
 

@@ -114,11 +114,11 @@ func (t *invertFilter) matchOutbound(outbound adapter.Outbound) bool {
 type tagFilter string
 
 func (t tagFilter) matchOutboundOptions(outbound *option.Outbound) bool {
-	return outbound.Tag == string(t)
+	return strings.Contains(outbound.Tag, string(t))
 }
 
 func (t tagFilter) matchOutbound(outbound adapter.Outbound) bool {
-	return outbound.Tag() == string(t)
+	return strings.Contains(outbound.Tag(), string(t))
 }
 
 type typeFilter string
