@@ -1,9 +1,9 @@
 package proxyparser
 
 import (
-	"github.com/sagernet/sing-box/common/outboundprovider/proxyparser/clash"
-	"github.com/sagernet/sing-box/common/outboundprovider/proxyparser/raw"
-	"github.com/sagernet/sing-box/common/outboundprovider/proxyparser/singbox"
+	"github.com/sagernet/sing-box/common/proxyparser/clash"
+	"github.com/sagernet/sing-box/common/proxyparser/raw"
+	"github.com/sagernet/sing-box/common/proxyparser/singbox"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
 )

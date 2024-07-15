@@ -21,7 +21,7 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/dialer"
 	"github.com/sagernet/sing-box/common/outboundprovider/action"
-	"github.com/sagernet/sing-box/common/outboundprovider/proxyparser"
+	"github.com/sagernet/sing-box/common/proxyparser"
 	"github.com/sagernet/sing-box/common/taskmonitor"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"

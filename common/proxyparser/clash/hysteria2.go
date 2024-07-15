@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sagernet/sing-box/common/outboundprovider/proxyparser/utils"
+	"github.com/sagernet/sing-box/common/proxyparser/utils"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
 )
