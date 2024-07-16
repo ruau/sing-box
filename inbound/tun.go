@@ -242,7 +242,7 @@ func NewTun(ctx context.Context, router adapter.Router, logger log.ContextLogger
 	}
 
 	// Script
-	if !C.IsAndroid && !C.IsIos && len(options.Scripts) > 0 {
+	if len(options.Scripts) > 0 {
 		inbound.scripts = make([]*script.Script, 0, len(options.Scripts))
 		for _, opt := range options.Scripts {
 			s, err := script.NewScript(ctx, logger, opt)
@@ -307,7 +307,7 @@ func (t *Tun) Start() error {
 		tunInterface tun.Tun
 		err          error
 	)
-	if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+	if len(t.scripts) > 0 {
 		// Script
 		for i, s := range t.scripts {
 			err = s.CallWithEvent(t.ctx, script.EventBeforeStart)
@@ -325,7 +325,7 @@ func (t *Tun) Start() error {
 	}
 	monitor.Finish()
 	if err != nil {
-		if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+		if len(t.scripts) > 0 {
 			// Script
 			for _, s := range t.scripts {
 				s.CallWithEvent(t.ctx, script.EventStartFailed)
@@ -334,14 +334,14 @@ func (t *Tun) Start() error {
 		return E.Cause(err, "configure tun interface")
 	}
 	defer func() {
-		if err != nil && !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+		if err != nil && len(t.scripts) > 0 {
 			// Script
 			for _, s := range t.scripts {
 				s.CallWithEvent(t.ctx, script.EventStartFailed)
 			}
 		}
 	}()
-	if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+	if len(t.scripts) > 0 {
 		// Script
 		for i, s := range t.scripts {
 			err = s.CallWithEvent(t.ctx, script.EventAfterStart)
@@ -410,7 +410,7 @@ func (t *Tun) PostStart() error {
 		err := t.autoRedirect.Start()
 		monitor.Finish()
 		if err != nil {
-			if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+			if len(t.scripts) > 0 {
 				// Script
 				for _, s := range t.scripts {
 					s.CallWithEvent(t.ctx, script.EventStartFailed)
@@ -441,7 +441,7 @@ func (t *Tun) updateRouteAddressSet(it adapter.RuleSet) {
 }
 
 func (t *Tun) Close() error {
-	if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+	if len(t.scripts) > 0 {
 		// Script
 		for _, s := range t.scripts {
 			s.CallWithEvent(context.Background(), script.EventBeforeClose)
@@ -452,10 +452,11 @@ func (t *Tun) Close() error {
 		t.tunIf,
 		t.autoRedirect,
 	)
-	if !C.IsAndroid && !C.IsIos && len(t.scripts) > 0 {
+	if len(t.scripts) > 0 {
 		// Script
 		for _, s := range t.scripts {
 			s.CallWithEvent(context.Background(), script.EventAfterClose)
+			s.Close()
 		}
 	}
 	return err

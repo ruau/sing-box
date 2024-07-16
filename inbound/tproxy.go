@@ -136,6 +136,7 @@ func (t *TProxy) Close() error {
 		// Script
 		for _, s := range t.scripts {
 			s.CallWithEvent(context.Background(), script.EventAfterClose)
+			s.Close()
 		}
 	}
 	return err

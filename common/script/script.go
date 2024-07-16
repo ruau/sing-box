@@ -46,6 +46,7 @@ type Script struct {
 	acceptEventMap  map[Event]struct{}
 	stdoutLogWriter *logWriter
 	stderrLogWriter *logWriter
+	serviceCancel   context.CancelFunc
 }
 
 func NewScript(ctx context.Context, logger log.ContextLogger, options option.ScriptOptions) (*Script, error) {
@@ -81,8 +82,8 @@ func NewScript(ctx context.Context, logger log.ContextLogger, options option.Scr
 	if options.AsService {
 		_, loaded1 := s.acceptEventMap[EventBeforeStart]
 		_, loaded2 := s.acceptEventMap[EventAfterStart]
-		if loaded1 || loaded2 {
-			return nil, E.New("before_start and after_start events are not allowed when as_service is true")
+		if !loaded1 && !loaded2 {
+			return nil, E.New("just before_start and after_start events are allowed when as_service is true")
 		}
 	}
 	var err error
@@ -166,6 +167,9 @@ func (s *Script) CallWithEvent(ctx context.Context, event Event) error {
 	if ctx == nil {
 		ctx = s.ctx
 	}
+	if s.asService {
+		ctx, s.serviceCancel = context.WithCancel(ctx)
+	}
 	cmd := s.buildCommand(ctx, event)
 	cmdString := cmd.String()
 	s.logger.Debug("call script: [", cmdString, "], event: ", event)
@@ -196,6 +200,13 @@ func (s *Script) CallWithEvent(ctx context.Context, event Event) error {
 		s.logger.Debug("call script: [", cmdString, "] success")
 	}
 	return err
+}
+
+func (s *Script) Close() error {
+	if s.asService && s.serviceCancel != nil {
+		s.serviceCancel()
+	}
+	return nil
 }
 
 type logWriter struct {

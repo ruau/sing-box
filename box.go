@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/script"
 	"github.com/sagernet/sing-box/common/taskmonitor"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/experimental"
@@ -35,6 +36,7 @@ type Box struct {
 	outbounds    []adapter.Outbound
 	logFactory   log.Factory
 	logger       log.ContextLogger
+	scripts      []*script.Script
 	preServices1 map[string]adapter.Service
 	preServices2 map[string]adapter.Service
 	postServices map[string]adapter.Service
@@ -84,6 +86,17 @@ func New(options Options) (*Box, error) {
 	})
 	if err != nil {
 		return nil, E.Cause(err, "create log factory")
+	}
+	var scripts []*script.Script
+	if len(options.Scripts) > 0 {
+		scripts = make([]*script.Script, 0, len(options.Scripts))
+		for i, options := range options.Scripts {
+			s, err := script.NewScript(ctx, logFactory.NewLogger(F.ToString("script[", i, "]")), options)
+			if err != nil {
+				return nil, E.Cause(err, "parse script[", i, "]")
+			}
+			scripts = append(scripts, s)
+		}
 	}
 	router, err := route.NewRouter(
 		ctx,
@@ -191,6 +204,7 @@ func New(options Options) (*Box, error) {
 		createdAt:    createdAt,
 		logFactory:   logFactory,
 		logger:       logFactory.Logger(),
+		scripts:      scripts,
 		preServices1: preServices1,
 		preServices2: preServices2,
 		postServices: postServices,
@@ -229,6 +243,15 @@ func (s *Box) Start() error {
 				println("panic on early start: " + fmt.Sprint(v))
 			}
 		}()
+
+		// Scripts
+		for i, sc := range s.scripts {
+			err := sc.CallWithEvent(context.Background(), script.EventStartFailed)
+			if err != nil {
+				s.logger.Error("call script[", i, "] failed: ", err)
+			}
+		}
+
 		s.Close()
 		return err
 	}
@@ -244,6 +267,15 @@ func (s *Box) preStart() error {
 	if err != nil {
 		return E.Cause(err, "start logger")
 	}
+
+	// Scripts
+	for i, sc := range s.scripts {
+		err := sc.CallWithEvent(nil, script.EventBeforeStart)
+		if err != nil {
+			return E.Cause(err, "call script[", i, "]")
+		}
+	}
+
 	for serviceName, service := range s.preServices1 {
 		if preService, isPreService := service.(adapter.PreStarter); isPreService {
 			monitor.Start("pre-start ", serviceName)
@@ -308,6 +340,15 @@ func (s *Box) start() error {
 	if err != nil {
 		return err
 	}
+
+	// Scripts
+	for i, sc := range s.scripts {
+		err := sc.CallWithEvent(nil, script.EventAfterStart)
+		if err != nil {
+			return E.Cause(err, "call script[", i, "]")
+		}
+	}
+
 	return s.router.Cleanup()
 }
 
@@ -350,6 +391,15 @@ func (s *Box) Close() error {
 		close(s.done)
 	}
 	monitor := taskmonitor.New(s.logger, C.StopTimeout)
+
+	// Scripts
+	for i, sc := range s.scripts {
+		err := sc.CallWithEvent(context.Background(), script.EventBeforeClose)
+		if err != nil {
+			s.logger.Error("call script[", i, "] failed: ", err)
+		}
+	}
+
 	var errors error
 	for serviceName, service := range s.postServices {
 		monitor.Start("close ", serviceName)
@@ -393,6 +443,15 @@ func (s *Box) Close() error {
 		})
 		monitor.Finish()
 	}
+
+	// Scripts
+	for i, sc := range s.scripts {
+		err := sc.CallWithEvent(context.Background(), script.EventAfterClose)
+		if err != nil {
+			s.logger.Error("call script[", i, "] failed: ", err)
+		}
+	}
+
 	if err := common.Close(s.logFactory); err != nil {
 		errors = E.Append(errors, err, func(err error) error {
 			return E.Cause(err, "close logger")
