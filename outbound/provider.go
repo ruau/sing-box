@@ -264,9 +264,9 @@ func (p *Provider) update(ctx context.Context) error {
 		p.logger.Error("failed to update outbound info: ", err)
 	} else {
 		p.logger.Info("outbound info updated")
+		info.Outbounds = nil
+		p.providerInfo = info
 	}
-	info.Outbounds = nil
-	p.providerInfo = info
 	return err
 }
 
